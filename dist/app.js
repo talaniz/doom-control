@@ -1,5 +1,5 @@
 const $=s=>document.querySelector(s);
-let thread=null,turn=null,stream=null,connected=false,cursor=null,selection=0,starting=false,loadingTask=false,permissionLabel='Workspace edits · approval for escalation';
+let thread=null,turn=null,stream=null,connected=false,cursor=null,selection=0,starting=false,loadingTask=false,permissionLabel='Workspace edits · Approve for me';
 const requests=new Map(),items=new Map();
 function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n}
 function notice(text){$('#notice').hidden=!text;$('#notice').textContent=text||''}
@@ -16,14 +16,14 @@ async function openTask(id){
  if(starting)throw Error('Wait for your prompt to be sent before changing tasks.');
  const serial=++selection;loadingTask=true;controls();notice('');
  try{
-  const b=await rpc('thread/resume',{threadId:id});
+  const b=await rpc('thread/resume',{threadId:id,approvalPolicy:'on-request',approvalsReviewer:'auto_review'});
   if(serial!==selection)return;
-  permissionLabel='Permissions: '+(b.sandbox?.type||'server policy')+' · approval for escalation';
+  permissionLabel='Permissions: '+(b.sandbox?.type||'server policy')+' · Approve for me';
   renderThread(b.thread);
  }finally{if(serial===selection){loadingTask=false;controls()}}
 }
-function newTask(){if(starting)return;loadingTask=false;permissionLabel='Workspace edits · approval for escalation';selection++;thread=null;turn=null;items.clear();$('#conversation').replaceChildren(el('div','Start a task with your first prompt.','empty'));title();drawRequests();$('#prompt').focus()}
-async function sendPrompt(text){if(!connected||loadingTask)throw Error('Wait for the selected task to connect.');if(!text.trim())throw Error('Enter a prompt');if(turn||starting)throw Error('Wait for this turn to finish or stop it first');starting=true;controls();notice('');try{if(!thread){const b=await rpc('thread/start',{cwd:$('#cwd').value,approvalPolicy:'on-request',approvalsReviewer:'user',sandbox:'workspace-write',...($('#model').value?{model:$('#model').value}:{})});renderThread(b.thread)}const b=await rpc('turn/start',{threadId:thread.id,input:[{type:'text',text}],approvalPolicy:'on-request',approvalsReviewer:'user'});turn=b.turn.status==='inProgress'?b.turn.id:null;$('#prompt').value='';await list();return{threadId:thread.id,turnId:b.turn.id}}finally{starting=false;controls()}}
+function newTask(){if(starting)return;loadingTask=false;permissionLabel='Workspace edits · Approve for me';selection++;thread=null;turn=null;items.clear();$('#conversation').replaceChildren(el('div','Start a task with your first prompt.','empty'));title();drawRequests();$('#prompt').focus()}
+async function sendPrompt(text){if(!connected||loadingTask)throw Error('Wait for the selected task to connect.');if(!text.trim())throw Error('Enter a prompt');if(turn||starting)throw Error('Wait for this turn to finish or stop it first');starting=true;controls();notice('');try{if(!thread){const b=await rpc('thread/start',{cwd:$('#cwd').value,approvalPolicy:'on-request',approvalsReviewer:'auto_review',sandbox:'workspace-write',...($('#model').value?{model:$('#model').value}:{})});renderThread(b.thread)}const b=await rpc('turn/start',{threadId:thread.id,input:[{type:'text',text}],approvalPolicy:'on-request',approvalsReviewer:'auto_review'});turn=b.turn.status==='inProgress'?b.turn.id:null;$('#prompt').value='';await list();return{threadId:thread.id,turnId:b.turn.id}}finally{starting=false;controls()}}
 function drawRequests(){const panel=$('#approvals');panel.replaceChildren();for(const r of requests.values()){const p=r.params;const box=el('div',undefined,'approval');box.append(el('h3',r.method.endsWith('requestUserInput')?'Codex has a question':'Your approval is needed'));if(p.threadId!==thread?.id){const open=el('button','Open requesting task');open.onclick=()=>openTask(p.threadId).catch(e=>notice(e.message));box.append(open)}
  const respond=async result=>{try{await api('respond',{id:r.id,result});requests.delete(String(r.id));drawRequests()}catch(e){notice(e.message)}};
  if(r.method.endsWith('requestUserInput')){const inputs=[];for(const q of p.questions){const label=el('label',q.question);if(q.options?.length)label.append(el('p',q.options.map(o=>o.label+': '+o.description).join('\n')));const input=el('input');input.type=q.isSecret?'password':'text';label.append(input);box.append(label);inputs.push([q.id,input])}const btn=el('button','Send answers','primary');btn.onclick=()=>{if(inputs.some(([,i])=>!i.value.trim()))return notice('Answer every question before sending.');respond({answers:Object.fromEntries(inputs.map(([id,i])=>[id,{answers:[i.value]}]))})};box.append(btn)}else{box.append(el('p',p.reason||'Review this action before it runs.'));box.append(el('pre',p.command||JSON.stringify(p,null,2)));if(p.cwd)box.append(el('p','Directory: '+p.cwd));for(const [text,decision]of [['Approve once','accept'],['Deny','decline']]){const btn=el('button',text,decision==='accept'?'primary':'quiet');btn.onclick=()=>respond({decision});box.append(btn)}}panel.append(box)}}

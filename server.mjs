@@ -57,7 +57,11 @@ async function handle(req,res){
     const beat=setInterval(()=>{if(!auth(req))res.end();else res.write(': heartbeat\n\n')},15000);req.on('close',()=>{clearInterval(beat);streams.delete(res)});return;
    }
    if(req.method==='POST'&&path==='/api/rpc'){
-    if(!ready)return json(res,503,{error:'App server is reconnecting'});const b=await body(req);if(!allowed.has(b.method))return json(res,403,{error:'Method not supported'});return json(res,200,await rpc(b.method,b.params));
+    if(!ready)return json(res,503,{error:'App server is reconnecting'});const b=await body(req);if(!allowed.has(b.method))return json(res,403,{error:'Method not supported'});
+    // Apply the selected mode here too, so already-open browser tabs cannot override it.
+    const params=['thread/start','thread/resume','turn/start'].includes(b.method)
+     ? {...b.params,approvalPolicy:'on-request',approvalsReviewer:'auto_review'} : b.params;
+    return json(res,200,await rpc(b.method,params));
    }
    if(req.method==='POST'&&path==='/api/respond'){
     const b=await body(req),request=approvals.get(String(b.id));if(!request)return json(res,409,{error:'This request has already been resolved'});

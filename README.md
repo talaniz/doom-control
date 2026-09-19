@@ -16,7 +16,7 @@ cat ~/doom-control-room/.private/access-key
 
 Paste it into the login page. It stays out of URLs and browser storage; the session cookie is HttpOnly, SameSite=Strict and expires after 12 hours. “Lock room” invalidates the session. Keep `.private/` private. The server creates the key with mode 600 inside a mode-700 directory.
 
-Use **New task** to choose a working directory and model, then send a prompt. Open existing tasks from the sidebar. Replies stream live; Stop interrupts the current turn. Command/file approvals require an explicit response. Question requests appear above the composer. Tool results and file diffs are expandable in the conversation. Unsupported specialized app-server requests fail explicitly and direct you to the desktop client.
+Use **New task** to choose a working directory and model, then send a prompt. Open existing tasks from the sidebar. Replies stream live; Stop interrupts the current turn. DOOM uses **Approve for me** (`approvalPolicy: on-request`, `approvalsReviewer: auto_review`) for new tasks, resumed tasks, and prompts. The app server reviews eligible approval requests automatically while keeping the existing sandbox limits. Any requests still routed to the browser require your response. Question requests appear above the composer. Tool results and file diffs are expandable in the conversation. Unsupported specialized app-server requests fail explicitly and direct you to the desktop client.
 
 ## Network
 

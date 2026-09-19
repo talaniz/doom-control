@@ -13,8 +13,8 @@ test('authenticated bridge preserves RPC, streams approvals, rejects unsafe requ
  const unix=join(dir,'app.sock');const daemon=http.createServer();const wss=new WebSocketServer({server:daemon,perMessageDeflate:false});
  await new Promise(r=>daemon.listen(unix,r));
  const portProbe=http.createServer();await new Promise(r=>portProbe.listen(0,'127.0.0.1',r));const port=portProbe.address().port;await new Promise(r=>portProbe.close(r));
- let upstream;const replies=[];
- wss.on('connection',ws=>{upstream=ws;ws.on('message',b=>{const m=JSON.parse(b);if(m.method&&m.id!==undefined)ws.send(JSON.stringify({id:m.id,result:m.method==='thread/list'?{data:[{id:'test-task'}],nextCursor:null}:{}}));else if(m.id!==undefined)replies.push(m)})});
+ let upstream;const replies=[],requests=[];
+ wss.on('connection',ws=>{upstream=ws;ws.on('message',b=>{const m=JSON.parse(b);requests.push(m);if(m.method&&m.id!==undefined)ws.send(JSON.stringify({id:m.id,result:m.method==='thread/list'?{data:[{id:'test-task'}],nextCursor:null}:{}}));else if(m.id!==undefined)replies.push(m)})});
  await writeFile(join(dir,'config.json'),JSON.stringify({bind:['127.0.0.1'],port,socket:unix}));
  const child=spawn(process.execPath,['server.mjs'],{cwd:new URL('..',import.meta.url),env:{...process.env,DOOM_CONFIG:join(dir,'config.json'),DOOM_STATE_DIR:dir+'/'},stdio:'pipe'});
  t.after(async()=>{child.kill();await once(child,'exit');for(const ws of wss.clients)ws.terminate();wss.close();await new Promise(r=>daemon.close(r));await rm(dir,{recursive:true,force:true})});
@@ -31,6 +31,14 @@ test('authenticated bridge preserves RPC, streams approvals, rejects unsafe requ
  assert.equal((await post('rpc',{method:'thread/list'},{Origin:'http://evil.example'})).status,403);
  assert.equal((await post('rpc',{method:'config/value/write'})).status,403);
  const listed=await post('rpc',{method:'thread/list'});assert.equal(listed.status,200);assert.deepEqual((await listed.json()).data,[{id:'test-task'}]);
+ for(const method of ['thread/start','thread/resume','turn/start']){
+  const response=await post('rpc',{method,params:{threadId:'test-task',approvalPolicy:'never',approvalsReviewer:'user'}});
+  assert.equal(response.status,200);
+  const forwarded=requests.findLast(r=>r.method===method);
+  assert.equal(forwarded.params.approvalPolicy,'on-request');
+  assert.equal(forwarded.params.approvalsReviewer,'auto_review');
+  assert.equal(forwarded.params.threadId,'test-task');
+ }
  const controller=new AbortController();const events=await fetch(base+'/api/events',{headers:{cookie},signal:controller.signal});const reader=events.body.getReader();let received='';
  const readUntil=async text=>{while(!received.includes(text)){const result=await reader.read();if(result.done)throw Error('Stream closed');received+=new TextDecoder().decode(result.value)}};
  await readUntil('bridge/status');
