@@ -1,0 +1,18 @@
+# Dependencies and private runtime state
+node_modules/
+.private/
+
+# Local configuration and credentials
+/config.json
+.env
+.env.*
+!.env.example
+.npmrc
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local diagnostics
+*.log
+.DS_Store
