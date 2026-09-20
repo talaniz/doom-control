@@ -152,3 +152,22 @@ arrives. Inline/fenced code, tool output, images, raw HTML, unsafe URL schemes a
 local/relative paths remain literal. This is a link-focused renderer, not full
 Markdown: headings, tables, reference-style links and optional link titles are not
 interpreted. All labels are inserted as text, never HTML.
+
+### Prompt mode
+
+Administrators can select **Normal** or **Plan** above the prompt. Normal works on
+the task; Plan asks Codex to plan the approach before implementation. The choice
+applies to the next prompt, including prompts with attachments. Selecting a mode
+alone does not start a turn or change permissions. The selector is locked while
+sending, loading a task, disconnected, or running a turn.
+
+New tasks and switching to a different task default to Normal. The choice stays
+selected between prompts in the current task; it is not saved across sign-outs or
+page reloads. Each prompt explicitly sends its mode, preserving the model and
+reasoning effort returned when the task was started or resumed. App-server errors
+keep the prompt and selection available for retry.
+
+Browser regression check (requires `/usr/bin/chromium`):
+`node scripts/test-modes-browser.mjs`. It runs the actual site and bridge against
+an isolated protocol fixture with temporary accounts; it does not use production
+accounts or tasks. The regular `npm test` suite remains browser-independent.
