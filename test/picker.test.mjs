@@ -31,3 +31,9 @@ test('partial discovery failure keeps successful results and offers retry',async
  let fail=true;const f=fixture(async method=>{if(method==='skills/list'){if(fail)throw Error('offline');return {data:[{skills:[skill]}]};}return {marketplaces:[{plugins:[plugin]}]};});
  f.type('@');await tick();assert.match(f.panel.textContent,/Skills unavailable/);assert.match(f.panel.textContent,/GitHub/);fail=false;[...f.panel.querySelectorAll('button')].find(b=>b.textContent==='Retry loading').click();await tick();f.type('$');assert.match(f.panel.textContent,/review/);
 });
+test('reselecting an identical mention replaces its previous target',async()=>{
+ const f=fixture(async method=>method==='skills/list'?{data:[{skills:[{...skill,path:'/one/SKILL.md'},{...skill,path:'/two/SKILL.md'}]}]}:{marketplaces:[]});
+ f.type('$rev');await tick();f.press('Enter');assert.equal(f.picker.inputs(f.prompt.value)[0].path,'/one/SKILL.md');
+ f.prompt.setSelectionRange('$review'.length,'$review'.length);f.prompt.dispatchEvent(new f.dom.window.Event('click'));f.panel.querySelectorAll('[role=option]')[1].click();
+ assert.deepEqual(f.picker.inputs(f.prompt.value),[{type:'skill',name:'review',path:'/two/SKILL.md'}]);
+});

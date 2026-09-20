@@ -54,6 +54,7 @@ export function createPromptPicker({prompt,panel,rpc,context}){
   if(!state().enabled||!trigger)return;
   sync();const current=findTrigger();if(!current||current.start!==trigger.start)return hide();
   const {start,end}=current;
+  references=references.filter(ref=>ref.end<=start||ref.start>=end);
   prompt.setRangeText(entry.token+' ',start,end,'end');sync();
   references.push({start,end:start+entry.token.length,token:entry.token,input:entry.input});
   previous=prompt.value;hide();prompt.focus();
