@@ -35,3 +35,16 @@ password values or account hashes are versioned. Deployment is explicitly pendin
 user approval after this PR and its independent reviews. No service was restarted.
 
 Browser and independent review results are recorded on the PR at their reviewed SHA.
+
+## Browser smoke and form fallback
+
+An isolated Chromium run exercised actual DOM login, admin task selection/prompt/stop,
+logout, viewer read-only task selection, forged-write denial, live SSE, pending
+approval display without write controls, session reload, logout cleanup, and 390px
+mobile width. All assertions passed with no JavaScript exceptions. The upstream was
+a fixture daemon; no production service or live Codex task was used.
+
+The first harness run submitted before waiting for the module handler and timed out.
+Waiting for the handler and initial session check resolved the harness timing issue.
+The login form also now declares POST explicitly: if JS has not loaded, credentials
+cannot fall back to a native GET query string. The bridge test checks this contract.

@@ -23,6 +23,7 @@ test('authenticated bridge preserves RPC, streams approvals, rejects unsafe requ
  t.after(async()=>{child.kill();await once(child,'exit');for(const ws of wss.clients)ws.terminate();wss.close();await new Promise(r=>daemon.close(r));await rm(dir,{recursive:true,force:true})});
  const base=`http://127.0.0.1:${port}`;const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  for(let i=0;i<50;i++){try{if((await fetch(base)).ok)break}catch{}await sleep(100)}
+ assert.match(await (await fetch(base)).text(),/<form id="login-form" method="post" action="\/api\/login">/,'native fallback must not put credentials in a GET URL');
  assert.equal((await fetch(base+'/api/status')).status,401);
  assert.equal((await fetch(base+'/config.json')).status,404);
  assert.equal((await fetch(base+'/.private/access-key')).status,404);
