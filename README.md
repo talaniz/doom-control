@@ -124,3 +124,20 @@ without completed metadata; complete uploads survive restart. To reclaim retaine
 files, stop the bridge and remove selected ID directories in `.private/uploads/`
 only after confirming their tasks no longer need them, then restart. Do not delete
 files while tasks are using them. No automatic retention expiry is imposed.
+
+## GitHub Actions
+
+The **Tests** workflow runs on pull requests and pushes to `main`; it can also be
+started manually from the Actions tab after the workflow is on the default branch.
+The **Node 22 checks and tests** job uses an Ubuntu GitHub-hosted runner and executes
+`npm ci`, `npm run check`, then `npm test`. A failed command fails the job; newer
+runs cancel obsolete runs for the same PR/ref. Jobs have a ten-minute timeout.
+
+Tests use synthetic accounts, temporary storage, loopback HTTP and a mock Unix-socket
+app server. They do not require production credentials, a running Pi, or a live Codex
+account. Browser and actual app-server verification remain separate review checks.
+The workflow has read-only repository permissions and does not deploy, merge or
+publish. Branch-protection settings are unchanged; making this check required for
+merge is a separate repository setting.
+
+Workflow pattern: [GitHub's Node.js testing guide](https://docs.github.com/en/actions/tutorials/build-and-test-code/nodejs).
