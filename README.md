@@ -156,7 +156,7 @@ interpreted. All labels are inserted as text, never HTML.
 ### Prompt mode
 
 Administrators can select **Normal** or **Plan** above the prompt. Normal works on
- the task; Plan asks Codex to plan the approach before implementation. The choice
+the task; Plan asks Codex to plan the approach before implementation. The choice
 applies to the next prompt, including prompts with attachments. Selecting a mode
 alone does not start a turn or change permissions. The selector is locked while
 sending, loading a task, disconnected, or running a turn.

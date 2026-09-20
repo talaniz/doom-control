@@ -52,12 +52,13 @@ function renderItem(i){if(!i?.id)return;if(i.type==='reasoning'&&!itemText(i))re
 function renderThread(t){thread=t;items.clear();$('#conversation').replaceChildren();turn=null;for(const tr of t.turns||[]){for(const i of tr.items||[])renderItem(i);if(tr.status==='inProgress')turn=tr.id;if(tr.error)notice(tr.error.message)}title();drawRequests();$('#conversation').scrollTop=$('#conversation').scrollHeight}
 async function openTask(id){
  if(starting)throw Error('Wait for your prompt to be sent before changing tasks.');
- if(thread?.id!==id){resetAttachments();$('#mode').value='default';taskSettings=null;}
+ if(thread?.id!==id)resetAttachments();
  const serial=++selection;loadingTask=true;controls();notice('');
  try{
   const b=canWrite()?await rpc('thread/resume',{threadId:id,approvalPolicy:'on-request',approvalsReviewer:'auto_review'}):await rpc('thread/read',{threadId:id,includeTurns:true});
   if(serial!==selection)return;
   permissionLabel='Permissions: '+(b.sandbox?.type||'server policy')+' · Approve for me';
+  if(thread?.id!==id)$('#mode').value='default';
   taskSettings={model:b.model,reasoning_effort:b.reasoningEffort??null,developer_instructions:null};
   renderThread(b.thread);
  }finally{if(serial===selection){loadingTask=false;controls()}}
