@@ -1,0 +1,51 @@
+import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {spawn} from 'node:child_process';
+import http from 'node:http';
+import WebSocket,{WebSocketServer} from 'ws';
+import {hashUser} from '../auth.mjs';
+import assert from 'node:assert/strict';
+const root=new URL('..',import.meta.url).pathname,dir=await mkdtemp(join(tmpdir(),'doom-link-browser-'));
+let chrome,bridge,cdp,wss,daemon;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const requests=[];let upstream,rejectTurn=false;
+try{
+ const thread={id:'fixture-task',preview:'Browser fixture',cwd:'/tmp',turns:[{id:'fixture-turn',status:'completed',items:[{id:'message',type:'agentMessage',text:'Fixture task content [Example](https://example.com/path)'}]}]};
+ daemon=http.createServer();wss=new WebSocketServer({server:daemon});const socket=join(dir,'app.sock');await new Promise(r=>daemon.listen(socket,r));
+ wss.on('connection',ws=>{upstream=ws;ws.on('message',raw=>{const m=JSON.parse(raw);requests.push(m);if(m.method==='turn/start'&&rejectTurn){ws.send(JSON.stringify({id:m.id,error:{code:-32602,message:'Fixture mode unavailable'}}));return;}if(m.method&&m.id!==undefined){let result={};if(m.method==='thread/list')result={data:[{...thread,updatedAt:1}],nextCursor:null};if(m.method==='model/list')result={data:[]};if(['thread/read','thread/resume','thread/start'].includes(m.method))result={thread,model:'fixture-model',reasoningEffort:'high'};if(m.method==='turn/start')result={turn:{id:'new-turn',status:'inProgress'}};ws.send(JSON.stringify({id:m.id,result}));}})});
+ const probe=http.createServer();await new Promise(r=>probe.listen(0,'127.0.0.1',r));const port=probe.address().port;await new Promise(r=>probe.close(r));
+ await writeFile(join(dir,'config.json'),JSON.stringify({bind:['127.0.0.1'],port,socket}));
+ await writeFile(join(dir,'users.json'),JSON.stringify({version:1,users:await Promise.all(['admin','user'].map(role=>hashUser({username:role,password:'browser-fixture',role})))}));
+ bridge=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,DOOM_CONFIG:join(dir,'config.json'),DOOM_STATE_DIR:dir},stdio:'ignore'});
+ for(let i=0;i<100;i++){try{if((await fetch(`http://127.0.0.1:${port}`)).ok)break}catch{}await sleep(50);}
+ chrome=spawn('/usr/bin/chromium',['--headless','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-extensions','--no-first-run','--remote-debugging-port=0','--remote-debugging-address=127.0.0.1',`--user-data-dir=${dir}/browser`,'about:blank'],{stdio:'ignore'});
+ let debugPort;for(let i=0;i<100;i++){try{debugPort=(await readFile(join(dir,'browser/DevToolsActivePort'),'utf8')).split('\n')[0];break}catch{}await sleep(100)}
+ const targets=await (await fetch(`http://127.0.0.1:${debugPort}/json`)).json();const page=targets.find(t=>t.type==='page');cdp=new WebSocket(page.webSocketDebuggerUrl);await new Promise(r=>cdp.once('open',r));
+ let id=0;const pending=new Map(),errors=[];cdp.on('message',raw=>{const m=JSON.parse(raw);if(m.id){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(Error(JSON.stringify(m.error))):p.resolve(m.result);}if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails);});
+ const call=(method,params={})=>new Promise((resolve,reject)=>{const n=++id;pending.set(n,{resolve,reject});cdp.send(JSON.stringify({id:n,method,params}));});
+ const js=async expression=>{const r=await call('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
+ const wait=async expression=>{for(let i=0;i<100;i++){if(await js(expression))return;await sleep(100)}throw Error('Timeout: '+expression+' state='+JSON.stringify(await js('({url:location.href,error:document.querySelector("#login-error")?.textContent,notice:document.querySelector("#notice")?.textContent,connection:document.querySelector("#connection")?.textContent})')));};
+ await call('Runtime.enable');await call('Page.enable');await call('Page.navigate',{url:`http://127.0.0.1:${port}`});await wait('typeof document.querySelector("#login-form")?.onsubmit==="function"');await sleep(300);
+ const login=async role=>{await js(`document.querySelector('#username').value=${JSON.stringify(role)};document.querySelector('#password').value='browser-fixture';document.querySelector('#login-form').requestSubmit()`);await wait('!document.querySelector("#workspace").hidden && !!document.querySelector("#tasks button")');};
+ await login('admin');assert.match(await js('document.querySelector("#identity").textContent'),/admin.*Admin/);assert.equal(await js('document.querySelector("#composer").hidden'),false);
+ await js('document.querySelector("#tasks button").click()');await wait('document.querySelector("#conversation").textContent.includes("Fixture task content")');assert.ok(requests.some(m=>m.method==='thread/resume'));
+ assert.equal(await js('document.querySelector("#mode")?.value'),'default','Normal is the default');
+ const send=async mode=>{await js(`document.querySelector('#mode').value='${mode}';document.querySelector('#mode').dispatchEvent(new Event('change'));document.querySelector('#prompt').value='mode fixture';document.querySelector('#composer').requestSubmit()`);await wait('!document.querySelector("#stop").hidden');await wait('document.querySelector("#prompt").value===""');const turn=requests.findLast(m=>m.method==='turn/start');assert.deepEqual(turn.params.collaborationMode,{mode,settings:{model:'fixture-model',reasoning_effort:'high',developer_instructions:null}});assert.equal(turn.params.approvalPolicy,'on-request');assert.equal(await js('document.querySelector("#mode").disabled'),true);};
+ const complete=async()=>{upstream.send(JSON.stringify({method:'turn/completed',params:{threadId:'fixture-task',turn:{id:'new-turn',status:'completed'}}}));await wait('!document.querySelector("#mode").disabled');await sleep(150);};
+ await send('plan');await complete();await send('default');await complete();
+ rejectTurn=true;await js(`document.querySelector('#mode').value='plan';document.querySelector('#prompt').value='retry prompt';document.querySelector('#composer').requestSubmit()`);await wait('document.querySelector("#notice").textContent.includes("Fixture mode unavailable")');assert.equal(await js('document.querySelector("#prompt").value'),'retry prompt');assert.equal(await js('document.querySelector("#mode").value'),'plan');assert.equal(await js('document.querySelector("#mode").disabled'),false);rejectTurn=false;await send('plan');await complete();
+ await js('document.querySelector("#mode").value="plan";document.querySelector("#new-task").click()');assert.equal(await js('document.querySelector("#mode").value'),'default');await send('plan');await complete();
+ await js('document.querySelector("#logout").click()');await wait('!document.querySelector("#login").hidden');const afterAdmin=requests.length;
+ await login('user');assert.match(await js('document.querySelector("#identity").textContent'),/user.*Read-only/);for(const sel of ['#composer','#new-task','#stop'])assert.equal(await js(`document.querySelector('${sel}').hidden`),true);
+ await js('document.querySelector("#tasks button").click()');await wait('document.querySelector("#conversation").textContent.includes("Fixture task content")');assert.ok(requests.slice(afterAdmin).some(m=>m.method==='thread/read'));assert.ok(!requests.slice(afterAdmin).some(m=>m.method==='thread/resume'));
+ const denied=await js(`fetch('/api/rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({method:'turn/start',params:{threadId:'fixture-task'}})}).then(r=>r.status)`);assert.equal(denied,403);
+ upstream.send(JSON.stringify({method:'item/agentMessage/delta',params:{threadId:'fixture-task',itemId:'message',delta:' live update'}}));await wait('document.querySelector("#conversation").textContent.includes("live update")');
+ upstream.send(JSON.stringify({id:1000,method:'item/commandExecution/requestApproval',params:{threadId:'fixture-task',command:'echo fixture'}}));await wait('document.querySelector("#approvals").textContent.includes("administrator must respond")');assert.equal(await js('document.querySelectorAll("#approvals input,#approvals .primary").length'),0);
+ await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});assert.equal(await js('document.documentElement.scrollWidth<=innerWidth'),true);
+ await call('Page.reload');await wait('!document.querySelector("#workspace").hidden');assert.match(await js('document.querySelector("#identity").textContent'),/Read-only/);
+ await js('document.querySelector("#logout").click()');await wait('!document.querySelector("#login").hidden');assert.equal(await js('document.querySelector("#conversation").textContent'), '');
+ assert.deepEqual(errors,[]);console.log('PASS Chromium: Plan/Normal payload, settings preservation, active-turn lock, new task reset; admin prompt/stop; user read-only selection, forged-write denial, live SSE, pending approval, reload, logout, mobile width; no JS exceptions.');
+}finally{
+ cdp?.close();chrome?.kill();bridge?.kill();for(const ws of wss?.clients||[])ws.terminate();wss?.close();daemon?.close();await sleep(500);await rm(dir,{recursive:true,force:true});
+}
