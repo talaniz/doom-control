@@ -142,16 +142,26 @@ merge is a separate repository setting.
 
 Workflow pattern: [GitHub's Node.js testing guide](https://docs.github.com/en/actions/tutorials/build-and-test-code/nodejs).
 
-## Links in chat
+## Markdown in chat
 
-User and Codex messages render inline Markdown links such as
-`[Pull request](https://github.com/owner/repo/pull/1)` as clickable, labeled links.
-HTTP, HTTPS and mailto destinations are supported; web links open a new tab without
-access to the original tab. Streamed links become clickable once the closing syntax
-arrives. Inline/fenced code, tool output, images, raw HTML, unsafe URL schemes and
-local/relative paths remain literal. This is a link-focused renderer, not full
-Markdown: headings, tables, reference-style links and optional link titles are not
-interpreted. All labels are inserted as text, never HTML.
+User messages, Codex responses, and plan items render GitHub-style Markdown:
+headings, paragraphs, emphasis, strikethrough, nested lists, task checkboxes,
+quotes, rules, tables, inline code, fenced/indented code, reference links,
+autolinks, and link titles. Streamed content is re-rendered as it arrives; code
+stays literal. Wide tables and code blocks scroll within the message.
+
+Marked parses the text and DOMPurify sanitizes the result with a narrow tag and
+attribute allowlist. Raw HTML is displayed as text. Only HTTP, HTTPS, and mailto
+links are enabled; they open with `noopener noreferrer`. Images are shown as
+explicit links instead of fetching remote resources automatically. Unsafe and
+local/relative destinations have no active link. Tool output stays plain text.
+Math, Mermaid, and executable HTML are not Markdown features supported here.
+Parser errors fall back to the original text so the response remains readable.
+
+Runtime libraries are pinned in the lockfile and served locally through two
+explicit asset routes; there is no CDN dependency. `npm ci` installs them for
+both deployment and tests. The DOM-based Markdown regression tests run under
+`npm test` and in GitHub Actions.
 
 ### Prompt mode
 
