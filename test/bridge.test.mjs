@@ -1,7 +1,7 @@
 import {scryptSync} from 'node:crypto';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawn} from 'node:child_process';
@@ -16,7 +16,7 @@ test('authenticated bridge preserves RPC, streams approvals, rejects unsafe requ
  const portProbe=http.createServer();await new Promise(r=>portProbe.listen(0,'127.0.0.1',r));const port=portProbe.address().port;await new Promise(r=>portProbe.close(r));
  let upstream;const replies=[],requests=[];
  wss.on('connection',ws=>{upstream=ws;ws.on('message',b=>{const m=JSON.parse(b);requests.push(m);if(m.method&&m.id!==undefined)ws.send(JSON.stringify({id:m.id,result:m.method==='thread/list'?{data:[{id:'test-task'}],nextCursor:null}:{}}));else if(m.id!==undefined)replies.push(m)})});
- const accounts=['administrator','viewer'].map((username,i)=>({username,role:i?'user':'admin',salt:Buffer.alloc(16,i+1).toString('hex'),passwordHash:scryptSync('fixture-password',Buffer.alloc(16,i+1).toString('hex'),64).toString('hex')}));
+ const accounts=['administrator','viewer','other-admin'].map((username,i)=>({username,role:i===1?'user':'admin',salt:Buffer.alloc(16,i+1).toString('hex'),passwordHash:scryptSync('fixture-password',Buffer.alloc(16,i+1).toString('hex'),64).toString('hex')}));
  await writeFile(join(dir,'users.json'),JSON.stringify({version:1,users:accounts}),{mode:0o600});
  await writeFile(join(dir,'config.json'),JSON.stringify({bind:['127.0.0.1'],port,socket:unix}));
  const child=spawn(process.execPath,['server.mjs'],{cwd:new URL('..',import.meta.url),env:{...process.env,DOOM_CONFIG:join(dir,'config.json'),DOOM_STATE_DIR:dir+'/'},stdio:'pipe'});
@@ -54,6 +54,27 @@ test('authenticated bridge preserves RPC, streams approvals, rejects unsafe requ
   assert.equal(forwarded.params.approvalsReviewer,'auto_review');
   assert.equal(forwarded.params.threadId,'test-task');
  }
+ const upload=(name,content,who=cookie)=>fetch(base+'/api/uploads',{method:'POST',headers:{cookie:who,'Content-Type':'application/octet-stream','X-File-Name':encodeURIComponent(name)},body:content});
+ assert.equal((await upload('denied.txt','no',viewerCookie)).status,403);
+ assert.equal((await upload('../escape.txt','no')).status,400);
+ assert.equal((await upload('big.bin',Buffer.alloc(10*1024*1024+1))).status,413);
+ const uploaded=await upload('notes.txt','Unique attachment fixture');assert.equal(uploaded.status,201);
+ const attachment=await uploaded.json();assert.equal(attachment.name,'notes.txt');assert.equal(attachment.size,25);assert.equal(attachment.path,undefined);
+ const other=await login(key,'other-admin');const otherCookie=other.headers.get('set-cookie').split(';')[0];
+ assert.equal((await fetch(base+'/api/rpc',{method:'POST',headers:{cookie:otherCookie,'Content-Type':'application/json'},body:JSON.stringify({method:'turn/start',params:{threadId:'test-task',input:[{type:'text',text:'read'}]},attachments:[attachment.id]})})).status,404);
+ assert.equal((await post('rpc',{method:'turn/start',params:{threadId:'test-task',input:[]},attachments:['missing']})).status,404);
+ assert.equal((await post('rpc',{method:'turn/start',params:{threadId:'test-task',input:[{type:'text',text:'Read my attachment'}]},attachments:[attachment.id]})).status,200);
+ const attachmentTurn=requests.findLast(r=>r.method==='turn/start');const attachedInput=attachmentTurn.params.input.at(-1);
+ assert.equal(attachedInput.type,'text');assert.match(attachedInput.text,/notes.txt/);
+ const storedPath=JSON.parse(attachedInput.text.split('\n').at(-1)).path;
+ assert.equal(await readFile(storedPath,'utf8'),'Unique attachment fixture');
+ const remove=(id,who=cookie)=>fetch(base+'/api/uploads/'+id,{method:'DELETE',headers:{cookie:who}});
+ assert.equal((await remove(attachment.id,viewerCookie)).status,403);
+ assert.equal((await remove(attachment.id,otherCookie)).status,404);
+ assert.equal((await remove(attachment.id)).status,409,'sent files remain available to the task');
+ const unused=await (await upload('remove.txt','remove me')).json();assert.equal((await remove(unused.id)).status,200);
+ assert.equal((await post('rpc',{method:'turn/start',params:{input:[]},attachments:[unused.id]})).status,404);
+ assert.equal((await fetch(base+'/.private/uploads/'+attachment.id+'/notes.txt')).status,404);
  const controller=new AbortController();const events=await fetch(base+'/api/events',{headers:{cookie},signal:controller.signal});const reader=events.body.getReader();let received='';
  const readUntil=async text=>{while(!received.includes(text)){const result=await reader.read();if(result.done)throw Error('Stream closed');received+=new TextDecoder().decode(result.value)}};
  await readUntil('bridge/status');
