@@ -38,7 +38,7 @@ test('authenticated bridge preserves RPC, streams approvals, rejects unsafe requ
  const viewerLogin=await login(key,'viewer');assert.equal(viewerLogin.status,200);const viewerCookie=viewerLogin.headers.get('set-cookie').split(';')[0];
  const viewerPost=(path,data)=>fetch(base+'/api/'+path,{method:'POST',headers:{cookie:viewerCookie,'Content-Type':'application/json'},body:JSON.stringify(data)});
  const viewerStatus=await (await fetch(base+'/api/status',{headers:{cookie:viewerCookie}})).json();assert.deepEqual(viewerStatus.user,{username:'viewer',role:'user'});
- for(const method of ['thread/list','thread/read','model/list'])assert.equal((await viewerPost('rpc',{method,params:{threadId:'test-task',includeTurns:true}})).status,200);
+ for(const method of ['thread/list','thread/read','model/list','skills/list','plugin/installed'])assert.equal((await viewerPost('rpc',{method,params:{threadId:'test-task',includeTurns:true}})).status,200);
  for(const method of ['thread/start','thread/resume','turn/start','turn/interrupt','config/value/write']){
   const before=requests.length;assert.equal((await viewerPost('rpc',{method,params:{threadId:'test-task'}})).status,403);assert.equal(requests.length,before,'denied RPC never reaches upstream');
  }

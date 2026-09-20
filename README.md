@@ -181,3 +181,29 @@ Browser regression check (requires `/usr/bin/chromium`):
 `node scripts/test-modes-browser.mjs`. It runs the actual site and bridge against
 an isolated protocol fixture with temporary accounts; it does not use production
 accounts or tasks. The regular `npm test` suite remains browser-independent.
+
+### Skill and plugin picker
+
+Type `$` at the start of a word to browse enabled skills for the current working
+directory, or `@` to browse enabled, installed plugins. Continue typing to filter
+by name or description. Use arrow keys and Enter/Tab, or click an option; Escape
+closes the list. Ctrl/Cmd+Enter still sends the prompt. Email addresses do not
+open the picker.
+
+Selections insert an editable mention and send a structured `skill` or `mention`
+input alongside the text. Plugin mentions use `plugin://<installed-id>`; skills
+use the discovered skill path. Deleting or changing a selected mention removes
+its structured reference. Unchanged references survive prompt submission errors;
+new tasks, successful task switches, working-directory changes and sign-out clear
+them. Manually typed mentions remain ordinary text for Codex to interpret.
+
+The picker shows loading, empty and partial-failure states, with a Retry button.
+It loads catalogs on demand and refreshes them after a successful send or context
+reset. It does not install plugins, change configuration, or enable disabled
+entries. Read-only accounts can read discovery metadata but cannot compose or
+send prompts. Discovery depends on the installed app-server protocol and current
+plugin/account availability.
+
+`node scripts/test-picker-browser.mjs` exercises the actual frontend and bridge
+with isolated fixtures. `npm test` includes DOM interaction and reference-lifecycle
+coverage; real app-server invocation is a separate deployment/review diagnostic.
