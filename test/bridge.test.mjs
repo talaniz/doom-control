@@ -1,6 +1,7 @@
+import {scryptSync} from 'node:crypto';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';
+import {mkdtemp,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawn} from 'node:child_process';
@@ -15,6 +16,8 @@ test('authenticated bridge preserves RPC, streams approvals, rejects unsafe requ
  const portProbe=http.createServer();await new Promise(r=>portProbe.listen(0,'127.0.0.1',r));const port=portProbe.address().port;await new Promise(r=>portProbe.close(r));
  let upstream;const replies=[],requests=[];
  wss.on('connection',ws=>{upstream=ws;ws.on('message',b=>{const m=JSON.parse(b);requests.push(m);if(m.method&&m.id!==undefined)ws.send(JSON.stringify({id:m.id,result:m.method==='thread/list'?{data:[{id:'test-task'}],nextCursor:null}:{}}));else if(m.id!==undefined)replies.push(m)})});
+ const accounts=['administrator','viewer'].map((username,i)=>({username,role:i?'user':'admin',salt:Buffer.alloc(16,i+1).toString('hex'),passwordHash:scryptSync('fixture-password',Buffer.alloc(16,i+1).toString('hex'),64).toString('hex')}));
+ await writeFile(join(dir,'users.json'),JSON.stringify({version:1,users:accounts}),{mode:0o600});
  await writeFile(join(dir,'config.json'),JSON.stringify({bind:['127.0.0.1'],port,socket:unix}));
  const child=spawn(process.execPath,['server.mjs'],{cwd:new URL('..',import.meta.url),env:{...process.env,DOOM_CONFIG:join(dir,'config.json'),DOOM_STATE_DIR:dir+'/'},stdio:'pipe'});
  t.after(async()=>{child.kill();await once(child,'exit');for(const ws of wss.clients)ws.terminate();wss.close();await new Promise(r=>daemon.close(r));await rm(dir,{recursive:true,force:true})});
@@ -24,9 +27,20 @@ test('authenticated bridge preserves RPC, streams approvals, rejects unsafe requ
  assert.equal((await fetch(base+'/config.json')).status,404);
  assert.equal((await fetch(base+'/.private/access-key')).status,404);
  assert.equal(await new Promise((resolve,reject)=>{const req=http.get(base,{headers:{Host:'attacker.example'}},res=>{res.resume();resolve(res.statusCode)});req.on('error',reject)}),403);
- const login=key=>fetch(base+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})});
+ const login=(password,username='administrator')=>fetch(base+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
  assert.equal((await login('wrong')).status,401);
- const key=(await readFile(join(dir,'access-key'),'utf8')).trim();const logged=await login(key);assert.equal(logged.status,200);assert.match(logged.headers.get('set-cookie'),/HttpOnly; SameSite=Strict/);const cookie=logged.headers.get('set-cookie').split(';')[0];
+ assert.equal((await login('fixture-password','missing-user')).status,401);
+ assert.equal((await fetch(base+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'legacy-key'})})).status,401);
+ assert.equal((await fetch(base+'/.private/users.json')).status,404);
+ const key='fixture-password';const logged=await login(key);assert.equal(logged.status,200);assert.match(logged.headers.get('set-cookie'),/HttpOnly; SameSite=Strict/);const cookie=logged.headers.get('set-cookie').split(';')[0];
+ assert.deepEqual((await logged.json()).user,{username:'administrator',role:'admin'});
+ const viewerLogin=await login(key,'viewer');assert.equal(viewerLogin.status,200);const viewerCookie=viewerLogin.headers.get('set-cookie').split(';')[0];
+ const viewerPost=(path,data)=>fetch(base+'/api/'+path,{method:'POST',headers:{cookie:viewerCookie,'Content-Type':'application/json'},body:JSON.stringify(data)});
+ const viewerStatus=await (await fetch(base+'/api/status',{headers:{cookie:viewerCookie}})).json();assert.deepEqual(viewerStatus.user,{username:'viewer',role:'user'});
+ for(const method of ['thread/list','thread/read','model/list'])assert.equal((await viewerPost('rpc',{method,params:{threadId:'test-task',includeTurns:true}})).status,200);
+ for(const method of ['thread/start','thread/resume','turn/start','turn/interrupt','config/value/write']){
+  const before=requests.length;assert.equal((await viewerPost('rpc',{method,params:{threadId:'test-task'}})).status,403);assert.equal(requests.length,before,'denied RPC never reaches upstream');
+ }
  const post=(path,data,extra={})=>fetch(base+'/api/'+path,{method:'POST',headers:{cookie,'Content-Type':'application/json',...extra},body:JSON.stringify(data)});
  assert.equal((await post('rpc',{method:'thread/list'},{Origin:'http://evil.example'})).status,403);
  assert.equal((await post('rpc',{method:'config/value/write'})).status,403);
@@ -44,6 +58,8 @@ test('authenticated bridge preserves RPC, streams approvals, rejects unsafe requ
  await readUntil('bridge/status');
  upstream.send(JSON.stringify({id:501,method:'item/commandExecution/requestApproval',params:{threadId:'test-task',turnId:'turn',itemId:'item',command:'echo hello'}}));
  await readUntil('requestApproval');assert.equal(replies.length,0,'never automatically approves');
+ assert.equal((await viewerPost('respond',{id:501,result:{decision:'accept'}})).status,403);assert.equal(replies.length,0);
+ const viewerEvents=await fetch(base+'/api/events',{headers:{cookie:viewerCookie}});const viewerReader=viewerEvents.body.getReader();assert.match(new TextDecoder().decode((await viewerReader.read()).value),/bridge\/status/);await viewerReader.cancel();
  assert.equal((await post('respond',{id:501,result:{decision:'acceptForSession'}})).status,400);
  assert.equal((await post('respond',{id:501,result:{decision:'decline'}})).status,200);
  await sleep(20);assert.deepEqual(replies.at(-1),{id:501,result:{decision:'decline'}});
@@ -53,6 +69,8 @@ test('authenticated bridge preserves RPC, streams approvals, rejects unsafe requ
  assert.equal((await post('respond',{id:502,result:{answers:{answer:{answers:['first']}}}})).status,200);
  upstream.send(JSON.stringify({id:503,method:'unknown/action',params:{threadId:'test-task'}}));await readUntil('bridge/unsupported');await sleep(20);assert.equal(replies.at(-1).error.code,-32601);
  upstream.close();await readUntil('"ready":false');await sleep(3300);const status=await (await fetch(base+'/api/status',{headers:{cookie}})).json();assert.equal(status.ready,true);
+ assert.equal((await viewerPost('logout',{})).status,200);assert.equal((await fetch(base+'/api/status',{headers:{cookie:viewerCookie}})).status,401);
+ assert.equal((await fetch(base+'/api/status',{headers:{cookie}})).status,200,'logout only revokes the selected session');
  controller.abort();await post('logout',{});assert.equal((await fetch(base+'/api/status',{headers:{cookie}})).status,401);
  for(let i=0;i<10;i++)await login('bad');assert.equal((await login(key)).status,429);
 });
