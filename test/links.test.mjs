@@ -20,3 +20,7 @@ test('code examples and incomplete streaming links remain text until complete',(
  assert.equal(links('[partial](https://example.com)').length,1);
  assert.equal(links('`[code](https://example.com)` [real](https://example.com)').length,1);
 });
+test('fences allow Markdown indentation and close only on a delimiter line',()=>{
+ for(const text of ['  ~~~md\n[code](https://example.com)\n  ~~~','   ```md\n[code](https://example.com)\n   ```','```js\nconst marker = "```";\n[code](https://example.com)\n```'])assert.deepEqual(linkParts(text),[{text}],text);
+ assert.equal(links('  ~~~md\n[code](https://example.com)\n  ~~~\n[real](https://example.com)').length,1);
+});

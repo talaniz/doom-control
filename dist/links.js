@@ -31,11 +31,23 @@ export function linkParts(text){
  const flush=()=>{if(plain){parts.push({text:plain});plain='';}};
  for(let i=0;i<text.length;){
   if(text[i]==='\\'&&i+1<text.length){plain+=text.slice(i,i+2);i+=2;continue;}
-  // Preserve inline code and fenced code, including a still-streaming unclosed block.
-  if(text[i]==='`'||(text[i]==='~'&&(i===0||text[i-1]==='\n')&&text.startsWith('~~~',i))){
-   const char=text[i];let width=1;while(text[i+width]===char)width++;
-   const marker=char.repeat(width);const close=text.indexOf(marker,i+width);
-   const end=close<0?text.length:close+width;plain+=text.slice(i,end);i=end;continue;
+  // Fences start/finish on delimiter lines; marker strings inside code are literal.
+  if(i===0||text[i-1]==='\n'){
+   const opening=/ {0,3}(`{3,}|~{3,})[^\n]*(?:\n|$)/y;opening.lastIndex=i;
+   const match=opening.exec(text);
+   if(match){
+    const marker=match[1];
+    const closing=new RegExp('^ {0,3}'+marker[0]+'{'+marker.length+',}[ \t]*\r?$','gm');
+    closing.lastIndex=opening.lastIndex;const endMatch=closing.exec(text);
+    const end=endMatch?endMatch.index+endMatch[0].length:text.length;
+    plain+=text.slice(i,end);i=end;continue;
+   }
+  }
+  if(text[i]==='`'){
+   let width=1;while(text[i+width]==='`')width++;
+   const runs=/`+/g;runs.lastIndex=i+width;let match,end=text.length;
+   while((match=runs.exec(text)))if(match[0].length===width){end=runs.lastIndex;break;}
+   plain+=text.slice(i,end);i=end;continue;
   }
   const image=text[i]==='!'&&text[i+1]==='[';
   if(text[i]==='['||image){
