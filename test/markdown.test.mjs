@@ -34,3 +34,8 @@ test('balanced links and fenced code preserve previous safe rendering behavior',
  for(const text of ['[bad](JaVaScRiPt:alert%281%29)','[bad](javascript&#58;alert%281%29)','[bad](//evil.example)','[bad](https://example.com/\u0000bad)'])assert.equal(render(text).querySelectorAll('a').length,0,text);
  const node=render('[<img src=x onerror=alert(1)>](https://example.com)');assert.equal(node.querySelectorAll('img').length,0);assert.ok(node.textContent.includes('<img'));
 });
+test('Markdown entities decode once in link and image destinations and titles',()=>{
+ const node=render('[x](https://example.com/?a=1&amp;b=2 "A &amp; B") [encoded](https&#58;//example.org) ![A &amp; B](https://example.com/?a=1&amp;b=2)');
+ const links=[...node.querySelectorAll('a')];assert.equal(links[0].href,'https://example.com/?a=1&b=2');assert.equal(links[0].title,'A & B');assert.equal(links[1].href,'https://example.org/');assert.equal(links[2].href,'https://example.com/?a=1&b=2');assert.equal(links[2].textContent,'A & B');
+ assert.equal(render('[bad](javascript&#58;alert%281%29) ![bad](javascript&#58;alert%281%29)').querySelectorAll('a').length,0);
+});

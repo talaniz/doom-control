@@ -4,9 +4,10 @@ import createDOMPurify from '../node_modules/dompurify/dist/purify.es.mjs';
 const escape=text=>text.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const parser=new Marked({gfm:true,renderer:{
  html:token=>escape(token.text),
- link(token){const label=this.parser.parseInline(token.tokens);return safeDestination(token.href)?`<a href="${escape(token.href)}"${token.title?` title="${escape(token.title)}"`:''}>${label}</a>`:label;},
+ // Keep Marked's entity handling; validate decoded destinations after sanitization.
+ link(token){if(/[\u0000-\u001f\u007f]/u.test(token.href))return this.parser.parseInline(token.tokens);return false;},
  // Images remain explicit links: rendering a message must not fetch remote assets.
- image:token=>safeDestination(token.href)?`<a href="${escape(token.href)}">${escape(token.text||'Image')}</a>`:escape(token.text||'Image')
+ image(token){return this.link({...token,tokens:[{type:'text',raw:token.text,text:token.text||'Image'}]});}
 }});
 const purifiers=new WeakMap();
 function safeDestination(value){
