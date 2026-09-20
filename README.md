@@ -141,3 +141,14 @@ publish. Branch-protection settings are unchanged; making this check required fo
 merge is a separate repository setting.
 
 Workflow pattern: [GitHub's Node.js testing guide](https://docs.github.com/en/actions/tutorials/build-and-test-code/nodejs).
+
+## Links in chat
+
+User and Codex messages render inline Markdown links such as
+`[Pull request](https://github.com/owner/repo/pull/1)` as clickable, labeled links.
+HTTP, HTTPS and mailto destinations are supported; web links open a new tab without
+access to the original tab. Streamed links become clickable once the closing syntax
+arrives. Inline/fenced code, tool output, images, raw HTML, unsafe URL schemes and
+local/relative paths remain literal. This is a link-focused renderer, not full
+Markdown: headings, tables, reference-style links and optional link titles are not
+interpreted. All labels are inserted as text, never HTML.

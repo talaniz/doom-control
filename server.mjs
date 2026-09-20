@@ -94,7 +94,7 @@ async function handle(req,res){
    }
    return json(res,404,{error:'Not found'});
   }
-  const assets={'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/styles.css':['styles.css','text/css; charset=utf-8']};
+  const assets={'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/links.js':['links.js','text/javascript; charset=utf-8'],'/styles.css':['styles.css','text/css; charset=utf-8']};
   if(req.method!=='GET'||!assets[path])return json(res,404,{error:'Not found'});
   const [file,type]=assets[path];res.setHeader('Content-Type',type);res.end(readFileSync(root+'dist/'+file));
  }catch(e){json(res,e.status||400,{error:e.message})}
