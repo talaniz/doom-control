@@ -2,6 +2,7 @@ import http from 'node:http';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {loadUsers,authenticate} from './auth.mjs';
+import {UploadStore} from './uploads.mjs';
 import {randomBytes} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import WebSocket from 'ws';
@@ -9,6 +10,7 @@ const root=fileURLToPath(new URL('.',import.meta.url));
 const config=JSON.parse(readFileSync(process.env.DOOM_CONFIG || root+'config.json'));
 const state=process.env.DOOM_STATE_DIR || root+'.private/';
 const users=loadUsers(join(state,'users.json'));
+const uploads=new UploadStore(state);
 const sessions=new Map(), streams=new Set(), pending=new Map(), approvals=new Map();
 let upstream,ready=false,nextId=1,retry;
 const allowed=new Set(['thread/list','thread/read','thread/start','thread/resume','turn/start','turn/interrupt','model/list']);
@@ -56,6 +58,12 @@ async function handle(req,res){
   }
   if(path.startsWith('/api/')){
    const session=auth(req);if(!session)return json(res,401,{error:'Sign in to continue'});
+   if(path==='/api/uploads'||path.startsWith('/api/uploads/')){
+    if(session.user.role!=='admin')return json(res,403,{error:'Read-only account: administrator permission required'});
+    if(req.method==='POST'&&path==='/api/uploads')return json(res,201,await uploads.save(req,session.user.username));
+    if(req.method==='DELETE'&&/^\/api\/uploads\/[a-f0-9]{32}$/.test(path)){await uploads.remove(path.split('/').at(-1),session.user.username);return json(res,200,{ok:true});}
+    return json(res,404,{error:'Not found'});
+   }
    if(req.method==='GET'&&path==='/api/status')return json(res,200,{ready,user:session.user,pending:[...approvals.values()]});
    if(req.method==='POST'&&path==='/api/logout'){sessions.delete(session.id);for(const r of streams)if(r.session===session.id)r.end();res.setHeader('Set-Cookie','doom_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');return json(res,200,{ok:true})}
    if(req.method==='GET'&&path==='/api/events'){
@@ -67,8 +75,14 @@ async function handle(req,res){
     if(session.user.role!=='admin'&&!readMethods.has(b.method))return json(res,403,{error:'Read-only account: administrator permission required'});
     if(!ready)return json(res,503,{error:'App server is reconnecting'});
     // Apply the selected mode here too, so already-open browser tabs cannot override it.
-    const params=['thread/start','thread/resume','turn/start'].includes(b.method)
+    let params=['thread/start','thread/resume','turn/start'].includes(b.method)
      ? {...b.params,approvalPolicy:'on-request',approvalsReviewer:'auto_review'} : b.params;
+    if(b.attachments!==undefined){
+     if(b.method!=='turn/start')return json(res,400,{error:'Attachments may only be sent with a prompt'});
+     if(!Array.isArray(params?.input))return json(res,400,{error:'Prompt input is required'});
+     const records=uploads.inputs(b.attachments,session.user.username);
+     params={...params,input:[...params.input,...uploads.pin(records)]};
+    }
     return json(res,200,await rpc(b.method,params));
    }
    if(req.method==='POST'&&path==='/api/respond'){
@@ -83,7 +97,7 @@ async function handle(req,res){
   const assets={'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/styles.css':['styles.css','text/css; charset=utf-8']};
   if(req.method!=='GET'||!assets[path])return json(res,404,{error:'Not found'});
   const [file,type]=assets[path];res.setHeader('Content-Type',type);res.end(readFileSync(root+'dist/'+file));
- }catch(e){json(res,400,{error:e.message})}
+ }catch(e){json(res,e.status||400,{error:e.message})}
 }
 connect();
 for(const host of config.bind){const server=http.createServer(handle);server.on('error',e=>{console.error('Listener failed:',host,e.message);process.exit(1)});server.listen(config.port,host,()=>console.log(`DOOM Control Room: http://${host}:${config.port}`));}
