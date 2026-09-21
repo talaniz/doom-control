@@ -19,25 +19,16 @@ body:
     validations:
       required: true
   - type: textarea
-    id: locations
-    attributes:
-      label: Affected documentation
-      description: Link the existing page or repository path, or describe where a new document belongs.
-      placeholder: |-
-        Page/path: ...
-        Section or proposed location: ...
-    validations:
-      required: true
-  - type: textarea
     id: scope
     attributes:
       label: Scope
-      description: Describe what is included and excluded. Mention affected areas and dependencies; do
-        not guess file paths if you do not know them.
+      description: Identify affected page links or repository paths, or where a new document belongs.
+        Describe included/excluded changes and relevant source or issue links.
       placeholder: |-
+        Affected pages or proposed location: ...
         Included: ...
         Excluded: ...
-        Dependencies or prerequisites: ...
+        References and dependencies: ...
     validations:
       required: true
   - type: textarea
@@ -62,11 +53,3 @@ body:
         Check links/examples against ...
     validations:
       required: true
-  - type: textarea
-    id: references
-    attributes:
-      label: References
-      description: Optional authoritative sources, related issues, or proposed wording.
-      placeholder: 'Sources or proposed wording: ...'
-    validations:
-      required: false

@@ -3,10 +3,10 @@
 Open [New issue](https://github.com/talaniz/doom-control/issues/new/choose) and choose **Feature request**, **Bug report**, or **Documentation request**. These forms become available after their files are merged into the default branch.
 
 - Features describe the user problem, scope, observable outcomes, and verification.
-- Bugs include reproduction steps, expected/actual behavior, optional environment/evidence, and a fix contract.
-- Documentation requests identify the reader, affected pages, scope, expected improvements, and a reader walkthrough.
+- Bugs put expected/actual behavior in Objective, affected areas and environment in Scope, and reproduction steps/regression checks in Verification.
+- Documentation requests identify the reader in Objective, affected pages and references in Scope, expected improvements in Acceptance criteria, and a reader walkthrough in Verification.
 
-All three require **Objective**, **Scope**, **Acceptance criteria**, and **Verification**. These exact labels produce the Markdown headings consumed by Prime Mover. Use concrete prose or lists under them; do not rename/repeat the contract headings or replace their contents with TODO, TBD, or N/A. You can describe verification steps in plain language when you do not know test commands. Maintainers should clarify incomplete scope or verification before authorizing work.
+All three require **Objective**, **Scope**, **Acceptance criteria**, and **Verification**. These exact labels produce the Markdown headings consumed by Prime Mover. All submitted answers stay within these four sections because only the extracted contract is passed to execution and review tasks. Use concrete prose or lists under them; do not rename/repeat the contract headings or replace their contents with TODO, TBD, or N/A. Use plain-text lead-ins such as `Steps to reproduce:` inside an answer, rather than additional Markdown headings. You can describe verification steps in plain language when you do not know test commands. Maintainers should clarify incomplete scope or verification before authorizing work.
 
 The forms apply only category labels (`enhancement`, `bug`, or `documentation`). Submitting a form does not enqueue execution by itself. An allowlisted maintainer must separately apply `codex-ready` after reviewing the contract. Remove that label to withdraw authorization; materially editing already-authorized work requires reconciliation. Merge and deployment approval remain separate.
 

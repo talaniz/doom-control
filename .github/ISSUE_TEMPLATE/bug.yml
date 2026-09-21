@@ -14,59 +14,26 @@ body:
     id: objective
     attributes:
       label: Objective
-      description: Summarize the problem and the behavior that needs to be restored.
-      placeholder: When I ..., the system ... instead of ...
-    validations:
-      required: true
-  - type: textarea
-    id: reproduction
-    attributes:
-      label: Steps to reproduce
-      description: Give the smallest repeatable sequence. If intermittent, describe the circumstances
-        and frequency.
+      description: Summarize the bug, expected behavior, and actual behavior. Include sanitized error
+        text or evidence if useful.
       placeholder: |-
-        1. Start from ...
-        2. Perform ...
-        3. Observe ...
+        Problem: ...
+        Expected behavior: ...
+        Actual behavior: ...
     validations:
       required: true
-  - type: textarea
-    id: expected
-    attributes:
-      label: Expected behavior
-      description: What should happen under those conditions?
-      placeholder: I expected ...
-    validations:
-      required: true
-  - type: textarea
-    id: actual
-    attributes:
-      label: Actual behavior
-      description: What happened instead? Include sanitized error text if useful.
-      placeholder: Instead, ...
-    validations:
-      required: true
-  - type: textarea
-    id: environment
-    attributes:
-      label: Environment
-      description: DOOM release or commit, browser/version, desktop or mobile, and account role (admin
-        or viewer). Do not include account credentials.
-      placeholder: |-
-        Version or commit: ...
-        Environment: ...
-    validations:
-      required: false
   - type: textarea
     id: scope
     attributes:
       label: Scope
-      description: Describe what is included and excluded. Mention affected areas and dependencies; do
-        not guess file paths if you do not know them.
+      description: 'Describe affected areas, what the fix should exclude, and dependencies. Include the
+        environment when known: release/commit, browser/version, desktop or mobile, and account role.
+        Redact private details.'
       placeholder: |-
-        Included: ...
+        Affected areas: ...
         Excluded: ...
-        Dependencies or prerequisites: ...
+        Environment (if known): ...
+        Dependencies: ...
     validations:
       required: true
   - type: textarea
@@ -83,19 +50,15 @@ body:
     id: verification
     attributes:
       label: Verification
-      description: How will the fix be checked? Include reproduction steps that should pass after the
-        fix and any relevant regression tests.
+      description: Give the smallest reproduction sequence (or circumstances/frequency if intermittent),
+        expected results after the fix, and regression checks. Include all needed steps here rather than
+        referring to another field or comment.
       placeholder: |-
-        Repeat ... and confirm ...
+        Steps to reproduce:
+        1. Start from ...
+        2. Perform ...
+        3. Observe ...
+        Expected result after the fix: ...
         Regression checks: ...
     validations:
       required: true
-  - type: textarea
-    id: evidence
-    attributes:
-      label: Sanitized evidence
-      description: Optional logs or screenshots. Remove credentials, private conversations, and personal
-        data before posting.
-      placeholder: 'Sanitized evidence or related issue links: ...'
-    validations:
-      required: false
