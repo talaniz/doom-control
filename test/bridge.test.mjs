@@ -39,7 +39,7 @@ test('authenticated bridge preserves RPC, streams approvals, rejects unsafe requ
  const viewerPost=(path,data)=>fetch(base+'/api/'+path,{method:'POST',headers:{cookie:viewerCookie,'Content-Type':'application/json'},body:JSON.stringify(data)});
  const viewerStatus=await (await fetch(base+'/api/status',{headers:{cookie:viewerCookie}})).json();assert.deepEqual(viewerStatus.user,{username:'viewer',role:'user'});
  for(const method of ['thread/list','thread/read','model/list','skills/list','plugin/installed'])assert.equal((await viewerPost('rpc',{method,params:{threadId:'test-task',includeTurns:true}})).status,200);
- for(const method of ['thread/start','thread/resume','turn/start','turn/interrupt','thread/name/set','config/value/write']){
+ for(const method of ['thread/start','thread/resume','turn/start','turn/interrupt','thread/name/set','thread/archive','config/value/write']){
   const before=requests.length;assert.equal((await viewerPost('rpc',{method,params:{threadId:'test-task'}})).status,403);assert.equal(requests.length,before,'denied RPC never reaches upstream');
  }
  const post=(path,data,extra={})=>fetch(base+'/api/'+path,{method:'POST',headers:{cookie,'Content-Type':'application/json',...extra},body:JSON.stringify(data)});
@@ -54,6 +54,8 @@ test('authenticated bridge preserves RPC, streams approvals, rejects unsafe requ
   assert.equal(forwarded.params.approvalsReviewer,'auto_review');
   assert.equal(forwarded.params.threadId,'test-task');
  }
+ const archive=await post('rpc',{method:'thread/archive',params:{threadId:'test-task',unexpected:'discard'}});assert.equal(archive.status,200);assert.deepEqual(requests.findLast(r=>r.method==='thread/archive').params,{threadId:'test-task'});
+ for(const threadId of ['', ' ',null,3]){const before=requests.length;assert.equal((await post('rpc',{method:'thread/archive',params:{threadId}})).status,400);assert.equal(requests.length,before);}
  const rename=await post('rpc',{method:'thread/name/set',params:{threadId:'test-task',name:'  A better title  '}});assert.equal(rename.status,200);assert.deepEqual(requests.findLast(r=>r.method==='thread/name/set').params,{threadId:'test-task',name:'A better title'});
  for(const name of ['', '   ', 'x'.repeat(121), 'bad\nname', null]){const before=requests.length;assert.equal((await post('rpc',{method:'thread/name/set',params:{threadId:'test-task',name}})).status,400);assert.equal(requests.length,before);}
  const upload=(name,content,who=cookie)=>fetch(base+'/api/uploads',{method:'POST',headers:{cookie:who,'Content-Type':'application/octet-stream','X-File-Name':encodeURIComponent(name)},body:content});

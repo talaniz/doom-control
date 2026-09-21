@@ -13,7 +13,7 @@ const users=loadUsers(join(state,'users.json'));
 const uploads=new UploadStore(state);
 const sessions=new Map(), streams=new Set(), pending=new Map(), approvals=new Map();
 let upstream,ready=false,nextId=1,retry;
-const allowed=new Set(['thread/list','thread/read','thread/start','thread/resume','turn/start','turn/interrupt','model/list','skills/list','plugin/installed','thread/name/set']);
+const allowed=new Set(['thread/list','thread/read','thread/start','thread/resume','turn/start','turn/interrupt','model/list','skills/list','plugin/installed','thread/name/set','thread/archive']);
 const readMethods=new Set(['thread/list','thread/read','model/list','skills/list','plugin/installed']);
 function broadcast(m){const s='data: '+JSON.stringify(m)+'\n\n';for(const r of streams){const session=sessions.get(r.session);if(!session||session.until<=Date.now()){r.end();streams.delete(r)}else if(!r.write(s))r.destroy();}}
 function send(m){if(upstream?.readyState!==WebSocket.OPEN)throw Error('App server is disconnected');upstream.send(JSON.stringify(m));}
@@ -77,6 +77,10 @@ async function handle(req,res){
     // Apply the selected mode here too, so already-open browser tabs cannot override it.
     let params=['thread/start','thread/resume','turn/start'].includes(b.method)
      ? {...b.params,approvalPolicy:'on-request',approvalsReviewer:'auto_review'} : b.params;
+    if(b.method==='thread/archive'){
+     if(typeof params?.threadId!=='string'||!params.threadId.trim())return json(res,400,{error:'A task ID is required.'});
+     params={threadId:params.threadId};
+    }
     if(b.method==='thread/name/set'){
      const name=typeof params?.name==='string'?params.name.trim():'';
      if(typeof params?.threadId!=='string'||!params.threadId.trim()||!name||name.length>120||/[\u0000-\u001f\u007f]/u.test(name))return json(res,400,{error:'Use a task name of 1–120 characters without control characters.'});
