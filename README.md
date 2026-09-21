@@ -226,3 +226,21 @@ the existing name. Renaming does not start or interrupt a Codex turn.
 with an isolated upstream fixture. Server validation and read-only denial are
 covered by `npm test`; persistence is additionally verified against the real
 app server using a synthetic task.
+
+### Archive tasks
+
+Administrators can right-click a sidebar task, choose **Archive**, and confirm the
+named task. Archiving retains history and removes the task from the active list;
+the app server also attempts to archive spawned subtasks. Running work is subject
+to the app server's archive behavior. Cancel makes no change, and failed requests
+keep the task visible with a retryable error. Read-only accounts cannot archive.
+
+Archiving another task preserves the open conversation, mode and draft. Archiving
+the open task returns to a new-task view and preserves unsent text; task-specific
+attachments and skill/plugin selections are cleared. Live archive notifications
+also update other clients. An archive browser/restore UI is not included in this
+change; archived history remains in Codex's archive.
+
+`node scripts/test-archive-browser.mjs` exercises the actual frontend and bridge
+in Chromium with a fixture app server. `npm test` verifies the bridge's archive
+validation and role enforcement. No production deployment is performed by tests.

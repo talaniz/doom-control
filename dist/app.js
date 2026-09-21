@@ -3,6 +3,8 @@ import {createPromptPicker} from './picker.js';
 const $=s=>document.querySelector(s);
 let thread=null,turn=null,stream=null,connected=false,cursor=null,selection=0,starting=false,loadingTask=false,permissionLabel='Workspace edits · Approve for me';
 let taskSettings=null,renameId=null,renameSaving=false,renameEpoch=0,renameTrigger=null,contextTarget=null;
+let archiveId=null,archiveSaving=false,archiveEpoch=0,archiveTrigger=null,loadingId=null;
+const archivedIds=new Set();
 let currentUser=null,authEpoch=0,attachments=[],uploading=false,attachmentEpoch=0;
 const canWrite=()=>currentUser?.role==='admin';
 const requests=new Map(),items=new Map();
@@ -44,9 +46,9 @@ async function attachFiles(files){
   }catch(error){if(epoch===attachmentEpoch){attachments=attachments.filter(a=>a!==entry);notice(error.message);}break;}
  }}finally{if(epoch===attachmentEpoch){uploading=false;$('#file-input').value='';drawAttachments();controls();}}
 }
-function controls(){ if(!canWrite()||!connected||loadingTask||starting)closeTaskMenu();picker.update();$('#rename-task').hidden=!canWrite()||!thread;$('#rename-task').disabled=!connected||loadingTask||starting||renameSaving;$('#rename-save').disabled=renameSaving||!connected;$('#rename-save').textContent=renameSaving?'Saving…':'Save name';$('#rename-cancel').disabled=renameSaving;$('#task-name').disabled=renameSaving; $('#mode').disabled=!connected||!!turn||starting||loadingTask;$('#mode-help').textContent=$('#mode').value==='plan'?'Plan the approach before implementation. Applies to your next prompt.':'Work on the task. Applies to your next prompt.'; $('#composer').hidden=!canWrite();$('#new-task').hidden=!canWrite();$('#read-only').hidden=canWrite();$('#identity').textContent=currentUser?`${currentUser.username} · ${canWrite()?'Admin':'Read-only'}`:''; $('#send').disabled=!connected||!!turn||starting||loadingTask||uploading||attachments.some(a=>a.removing);$('#attach').disabled=starting||uploading||loadingTask||attachments.length>=5;$('#new-task').disabled=starting;$('#stop').disabled=loadingTask;$('#stop').hidden=!canWrite()||!turn;$('#new-settings').hidden=!!thread;$('#run-status').textContent=turn?'Codex is working…':permissionLabel;$('#connection').textContent=connected?'App server connected':'Reconnecting…'; }
-function lock(){closeTaskMenu();closeRename();authEpoch++;resetAttachments();selection++;currentUser=null;taskSettings=null;$('#mode').value='default';thread=null;turn=null;starting=false;loadingTask=false;items.clear();$('#conversation').replaceChildren();$('#tasks').replaceChildren();$('#prompt').value='';notice('');stream?.close();stream=null;$('#login').hidden=false;$('#workspace').hidden=true;connected=false;requests.clear();$('#approvals').replaceChildren();controls()}
-async function list(more=false){const b=await rpc('thread/list',{limit:30,sortKey:'updated_at',...(more&&cursor?{cursor}:{})});closeTaskMenu();if(!more)$('#tasks').replaceChildren();cursor=b.nextCursor;$('#more').hidden=!cursor;for(const t of b.data){const btn=el('button',(t.name||t.preview||'Untitled task').slice(0,100));btn.taskSummary=t;btn.dataset.id=t.id;if(canWrite())btn.setAttribute('aria-haspopup','menu');btn.oncontextmenu=e=>openTaskMenu(e,btn);btn.onkeydown=e=>{if(e.key==='ContextMenu'||(e.shiftKey&&e.key==='F10'))openTaskMenu(e,btn);};btn.dataset.preview=(t.preview||'Untitled task').slice(0,100);btn.classList.toggle('selected',thread?.id===t.id);btn.append(el('small',new Date(t.updatedAt*1000).toLocaleDateString()));btn.onclick=()=>openTask(t.id).catch(e=>notice(e.message));$('#tasks').append(btn)}}
+function controls(){ $('#archive-confirm').disabled=archiveSaving||!connected;$('#archive-confirm').textContent=archiveSaving?'Archiving…':'Archive';$('#archive-cancel').disabled=archiveSaving;if(!canWrite()||!connected||loadingTask||starting)closeTaskMenu();picker.update();$('#rename-task').hidden=!canWrite()||!thread;$('#rename-task').disabled=!connected||loadingTask||starting||renameSaving;$('#rename-save').disabled=renameSaving||!connected;$('#rename-save').textContent=renameSaving?'Saving…':'Save name';$('#rename-cancel').disabled=renameSaving;$('#task-name').disabled=renameSaving; $('#mode').disabled=!connected||!!turn||starting||loadingTask;$('#mode-help').textContent=$('#mode').value==='plan'?'Plan the approach before implementation. Applies to your next prompt.':'Work on the task. Applies to your next prompt.'; $('#composer').hidden=!canWrite();$('#new-task').hidden=!canWrite();$('#read-only').hidden=canWrite();$('#identity').textContent=currentUser?`${currentUser.username} · ${canWrite()?'Admin':'Read-only'}`:''; $('#send').disabled=!connected||!!turn||starting||loadingTask||uploading||attachments.some(a=>a.removing);$('#attach').disabled=starting||uploading||loadingTask||attachments.length>=5;$('#new-task').disabled=starting;$('#stop').disabled=loadingTask;$('#stop').hidden=!canWrite()||!turn;$('#new-settings').hidden=!!thread;$('#run-status').textContent=turn?'Codex is working…':permissionLabel;$('#connection').textContent=connected?'App server connected':'Reconnecting…'; }
+function lock(){closeArchive();archivedIds.clear();loadingId=null;closeTaskMenu();closeRename();authEpoch++;resetAttachments();selection++;currentUser=null;taskSettings=null;$('#mode').value='default';thread=null;turn=null;starting=false;loadingTask=false;items.clear();$('#conversation').replaceChildren();$('#tasks').replaceChildren();$('#prompt').value='';notice('');stream?.close();stream=null;$('#login').hidden=false;$('#workspace').hidden=true;connected=false;requests.clear();$('#approvals').replaceChildren();controls()}
+async function list(more=false){const b=await rpc('thread/list',{limit:30,sortKey:'updated_at',...(more&&cursor?{cursor}:{})});closeTaskMenu();if(!more)$('#tasks').replaceChildren();cursor=b.nextCursor;$('#more').hidden=!cursor;for(const t of b.data){if(archivedIds.has(t.id))continue;const btn=el('button',(t.name||t.preview||'Untitled task').slice(0,100));btn.taskSummary=t;btn.dataset.id=t.id;if(canWrite())btn.setAttribute('aria-haspopup','menu');btn.oncontextmenu=e=>openTaskMenu(e,btn);btn.onkeydown=e=>{if(e.key==='ContextMenu'||(e.shiftKey&&e.key==='F10'))openTaskMenu(e,btn);};btn.dataset.preview=(t.preview||'Untitled task').slice(0,100);btn.classList.toggle('selected',thread?.id===t.id);btn.append(el('small',new Date(t.updatedAt*1000).toLocaleDateString()));btn.onclick=()=>openTask(t.id).catch(e=>notice(e.message));$('#tasks').append(btn)}}
 function title(){ $('#task-title').textContent=thread?.name||thread?.preview?.slice(0,90)||'Your next move.';$('#task-meta').textContent=thread?thread.cwd:'Choose a task or start something new.';for(const b of $('#tasks').children)b.classList.toggle('selected',b.dataset.id===thread?.id);controls() }
 function setTaskName(id,name){
  if(thread?.id===id){thread.name=name;title();}
@@ -57,7 +59,7 @@ function closeTaskMenu(restoreFocus=false){
  if(restoreFocus&&trigger?.isConnected)trigger.focus();
 }
 function openTaskMenu(event,button){
- if(!canWrite()||!connected||loadingTask||starting||renameSaving)return;
+ if(!canWrite()||!connected||loadingTask||starting||renameSaving||archiveSaving)return;
  event.preventDefault();closeTaskMenu();contextTarget=button;
  const menu=$('#task-context-menu'),rect=button.getBoundingClientRect();
  const keyboard=event.type==='keydown';menu.hidden=false;
@@ -70,7 +72,7 @@ function closeRename(){
  if(renameTrigger?.isConnected)renameTrigger.focus();renameTrigger=null;
 }
 function openRename(target=thread,trigger=$('#rename-task')){
- if(!canWrite()||!target||!connected||loadingTask||starting||renameSaving)return;
+ if(!canWrite()||!target||!connected||loadingTask||starting||renameSaving||archiveSaving)return;
  closeTaskMenu();renameTrigger=trigger;
  renameEpoch++;renameId=target.id;$('#task-name').value=(target.name||target.preview||'').slice(0,120);$('#rename-error').textContent='';controls();$('#rename-dialog').showModal();$('#task-name').focus();$('#task-name').select();
 }
@@ -83,13 +85,45 @@ async function saveRename(){
  catch(error){if(serial===renameEpoch)$('#rename-error').textContent=error.message;}
  finally{if(serial===renameEpoch)renameSaving=false;controls();}
 }
+function closeArchive(){
+ archiveEpoch++;archiveId=null;archiveSaving=false;$('#archive-dialog').close();
+ const target=archiveTrigger?.isConnected?archiveTrigger:$('#tasks button')||$('#new-task');
+ if(!target.hidden)target.focus();archiveTrigger=null;
+}
+function openArchive(target,trigger){
+ if(!canWrite()||!target||!connected||loadingTask||starting||archiveSaving)return;
+ closeTaskMenu();archiveId=target.id;archiveTrigger=trigger;archiveEpoch++;
+ $('#archive-name').textContent=target.name||target.preview||'Untitled task';$('#archive-error').textContent='';
+ controls();$('#archive-dialog').showModal();$('#archive-cancel').focus();
+}
+function removeArchivedTask(id){
+ archivedIds.add(id);
+ if(contextTarget?.dataset.id===id)closeTaskMenu();
+ if(renameId===id)closeRename();
+ for(const button of $('#tasks').children)if(button.dataset.id===id)button.remove();
+ for(const [key,r]of requests)if(r.params.threadId===id)requests.delete(key);
+ if(loadingId===id){selection++;loadingId=null;loadingTask=false;}
+ if(thread?.id===id)resetTask();
+ if(archiveId===id&&!archiveSaving)closeArchive();
+ drawRequests();controls();
+}
+async function archiveTask(){
+ if(!canWrite()||!archiveId||archiveSaving||!connected)return;
+ const id=archiveId,serial=archiveEpoch,epoch=authEpoch;archiveSaving=true;$('#archive-error').textContent='';controls();
+ try{
+  await rpc('thread/archive',{threadId:id});
+  if(serial!==archiveEpoch||epoch!==authEpoch)return;
+  removeArchivedTask(id);closeArchive();
+ }catch(error){if(serial===archiveEpoch)$('#archive-error').textContent=error.message;}
+ finally{if(serial===archiveEpoch)archiveSaving=false;controls();}
+}
 function itemText(i){if(i.type==='userMessage')return i.content.map(c=>attachmentText(c.text)||(c.type==='skill'?'Skill: '+c.name:c.type==='mention'?'Plugin: '+c.name:`[${c.type}]`)).join('\n');if(i.text!==undefined)return i.text;if(i.type==='commandExecution')return i.command+'\n\n'+(i.aggregatedOutput||'');if(i.type==='fileChange')return i.changes.map(c=>c.path+'\n'+(c.diff||'')).join('\n');if(i.type==='reasoning')return (i.summary||[]).join('\n');return JSON.stringify(i,null,2)}
 function renderItem(i){if(!i?.id)return;if(i.type==='reasoning'&&!itemText(i))return;let row=items.get(i.id);if(!row){row=el('article',undefined,'message '+(i.type==='userMessage'?'user':i.type==='agentMessage'?'agent':'tool'));items.set(i.id,row);$('#conversation .empty')?.remove();$('#conversation').append(row)}const nearBottom=$('#conversation').scrollHeight-$('#conversation').scrollTop-$('#conversation').clientHeight<160;row.replaceChildren();const label=i.type==='userMessage'?'You':i.type==='agentMessage'?'Codex':i.type.replace(/([A-Z])/g,' $1');row.append(el('h3',label));const markdown=['userMessage','agentMessage','plan'].includes(i.type);const pre=el(markdown?'div':'pre',undefined,markdown?'markdown':undefined);if(markdown)renderLinkedText(pre,itemText(i));else pre.textContent=itemText(i);if(!['userMessage','agentMessage','plan'].includes(i.type)){const d=el('details');d.append(el('summary',i.status||'Details'),pre);row.append(d)}else row.append(pre);if(nearBottom)$('#conversation').scrollTop=$('#conversation').scrollHeight;row.item=i}
 function renderThread(t){thread=t;items.clear();$('#conversation').replaceChildren();turn=null;for(const tr of t.turns||[]){for(const i of tr.items||[])renderItem(i);if(tr.status==='inProgress')turn=tr.id;if(tr.error)notice(tr.error.message)}title();drawRequests();$('#conversation').scrollTop=$('#conversation').scrollHeight}
 async function openTask(id){
  if(starting)throw Error('Wait for your prompt to be sent before changing tasks.');
  if(thread?.id!==id)resetAttachments();
- const serial=++selection;loadingTask=true;controls();notice('');
+ const serial=++selection;loadingId=id;loadingTask=true;controls();notice('');
  try{
   const b=canWrite()?await rpc('thread/resume',{threadId:id,approvalPolicy:'on-request',approvalsReviewer:'auto_review'}):await rpc('thread/read',{threadId:id,includeTurns:true});
   if(serial!==selection)return;
@@ -97,15 +131,16 @@ async function openTask(id){
   if(thread?.id!==id){picker.reset();$('#mode').value='default';}
   taskSettings={model:b.model,reasoning_effort:b.reasoningEffort??null,developer_instructions:null};
   renderThread(b.thread);
- }finally{if(serial===selection){loadingTask=false;controls()}}
+ }finally{if(serial===selection){loadingId=null;loadingTask=false;controls()}}
 }
-function newTask(){if(!canWrite()||starting)return;picker.reset();resetAttachments();taskSettings=null;$('#mode').value='default';loadingTask=false;permissionLabel='Workspace edits · Approve for me';selection++;thread=null;turn=null;items.clear();$('#conversation').replaceChildren(el('div','Start a task with your first prompt.','empty'));title();drawRequests();$('#prompt').focus()}
+function newTask(){if(!canWrite()||starting)return;resetTask();}
+function resetTask(){picker.reset();resetAttachments();taskSettings=null;$('#mode').value='default';loadingTask=false;permissionLabel='Workspace edits · Approve for me';selection++;thread=null;turn=null;items.clear();$('#conversation').replaceChildren(el('div','Start a task with your first prompt.','empty'));title();drawRequests();$('#prompt').focus()}
 async function sendPrompt(text){if(!canWrite())throw Error('Read-only account');if(!connected||loadingTask)throw Error('Wait for the selected task to connect.');if(uploading||attachments.some(a=>a.removing))throw Error('Wait for attachment changes to finish');if(!text.trim()&&!attachments.length)throw Error('Enter a prompt or attach a file');if(turn||starting)throw Error('Wait for this turn to finish or stop it first');const selectedInputs=picker.inputs(text);starting=true;controls();notice('');try{if(!thread){const b=await rpc('thread/start',{cwd:$('#cwd').value,approvalPolicy:'on-request',approvalsReviewer:'auto_review',sandbox:'workspace-write',...($('#model').value?{model:$('#model').value}:{})});taskSettings={model:b.model,reasoning_effort:b.reasoningEffort??null,developer_instructions:null};picker.adoptContext(authEpoch+'|'+(b.thread.cwd||$('#cwd').value));renderThread(b.thread)}if(!taskSettings?.model)throw Error('Task settings unavailable. Reopen the task and try again.');const b=await rpc('turn/start',{threadId:thread.id,collaborationMode:{mode:$('#mode').value,settings:taskSettings},input:[{type:'text',text:text.trim()?text:'Please review the attached files.'},...selectedInputs],approvalPolicy:'on-request',approvalsReviewer:'auto_review'},attachments.map(a=>a.id));resetAttachments(false);turn=b.turn.status==='inProgress'?b.turn.id:null;$('#prompt').value='';picker.reset();await list();return{threadId:thread.id,turnId:b.turn.id}}finally{starting=false;controls()}}
 function drawRequests(){const panel=$('#approvals');panel.replaceChildren();for(const r of requests.values()){const p=r.params;const box=el('div',undefined,'approval');box.append(el('h3',r.method.endsWith('requestUserInput')?'Codex has a question':'Your approval is needed'));if(p.threadId!==thread?.id){const open=el('button','Open requesting task');open.onclick=()=>openTask(p.threadId).catch(e=>notice(e.message));box.append(open)}
  if(!canWrite()){box.append(el('p','An administrator must respond to this request.'));panel.append(box);continue;}
  const respond=async result=>{try{await api('respond',{id:r.id,result});requests.delete(String(r.id));drawRequests()}catch(e){notice(e.message)}};
  if(r.method.endsWith('requestUserInput')){const inputs=[];for(const q of p.questions){const label=el('label',q.question);if(q.options?.length)label.append(el('p',q.options.map(o=>o.label+': '+o.description).join('\n')));const input=el('input');input.type=q.isSecret?'password':'text';label.append(input);box.append(label);inputs.push([q.id,input])}const btn=el('button','Send answers','primary');btn.onclick=()=>{if(inputs.some(([,i])=>!i.value.trim()))return notice('Answer every question before sending.');respond({answers:Object.fromEntries(inputs.map(([id,i])=>[id,{answers:[i.value]}]))})};box.append(btn)}else{box.append(el('p',p.reason||'Review this action before it runs.'));box.append(el('pre',p.command||JSON.stringify(p,null,2)));if(p.cwd)box.append(el('p','Directory: '+p.cwd));for(const [text,decision]of [['Approve once','accept'],['Deny','decline']]){const btn=el('button',text,decision==='accept'?'primary':'quiet');btn.onclick=()=>respond({decision});box.append(btn)}}panel.append(box)}}
-function onEvent(m){const p=m.params||{};if(m.method==='bridge/status'){const was=connected;connected=p.ready;if(p.pending){requests.clear();for(const r of p.pending)requests.set(String(r.id),r);drawRequests()}controls();if(connected&&!was){loadModels().catch(e=>notice(e.message));list().catch(e=>notice(e.message));if(thread)openTask(thread.id).catch(e=>notice(e.message))}return}if(m.id!==undefined){requests.set(String(m.id),m);drawRequests();return}if(m.method==='serverRequest/resolved'){requests.delete(String(p.requestId));drawRequests();return}if(m.method==='bridge/unsupported'){notice('This action needs the desktop client: '+p.method);return}if(m.method==='thread/name/updated'){setTaskName(p.threadId,p.threadName);return;}if(!thread||p.threadId!==thread.id)return;
+function onEvent(m){const p=m.params||{};if(m.method==='bridge/status'){const was=connected;connected=p.ready;if(p.pending){requests.clear();for(const r of p.pending)requests.set(String(r.id),r);drawRequests()}controls();if(connected&&!was){loadModels().catch(e=>notice(e.message));list().catch(e=>notice(e.message));if(thread)openTask(thread.id).catch(e=>notice(e.message))}return}if(m.id!==undefined){requests.set(String(m.id),m);drawRequests();return}if(m.method==='serverRequest/resolved'){requests.delete(String(p.requestId));drawRequests();return}if(m.method==='bridge/unsupported'){notice('This action needs the desktop client: '+p.method);return}if(m.method==='thread/archived'){removeArchivedTask(p.threadId);return;}if(m.method==='thread/unarchived'){archivedIds.delete(p.threadId);list().catch(e=>notice(e.message));return;}if(m.method==='thread/name/updated'){setTaskName(p.threadId,p.threadName);return;}if(!thread||p.threadId!==thread.id)return;
  if(m.method==='turn/started'){turn=p.turn.id;controls()}
  if(m.method==='item/started'||m.method==='item/completed')renderItem(p.item);
  if(m.method==='item/agentMessage/delta'){const old=items.get(p.itemId)?.item||{id:p.itemId,type:'agentMessage',text:''};renderItem({...old,text:old.text+p.delta})}
@@ -135,10 +170,20 @@ const picker=createPromptPicker({prompt:$('#prompt'),panel:$('#prompt-picker'),r
 $('#cwd').addEventListener('input',()=>picker.update());
 $('#login-form').onsubmit=async e=>{e.preventDefault();try{await api('login',{username:$('#username').value,password:$('#password').value});$('#password').value='';$('#login-error').textContent='';await enter()}catch(e){$('#login-error').textContent=e.message}};
 $('#rename-task').onclick=()=>openRename();
+$('#context-archive').onclick=()=>{if(contextTarget)openArchive(contextTarget.taskSummary,contextTarget);};
+$('#archive-form').onsubmit=e=>{e.preventDefault();archiveTask();};
+$('#archive-cancel').onclick=()=>{closeArchive();controls();};
+$('#archive-dialog').oncancel=e=>{e.preventDefault();if(!archiveSaving){closeArchive();controls();}};
 $('#context-rename').onclick=()=>{if(contextTarget)openRename(contextTarget.taskSummary,contextTarget);};
 $('#task-context-menu').onkeydown=e=>{
  if(e.key==='Escape'){e.preventDefault();closeTaskMenu(true);}
  else if(e.key==='Tab')closeTaskMenu(true);
+ else if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){
+  e.preventDefault();const entries=[...$('#task-context-menu').querySelectorAll('button')];
+  const current=entries.indexOf(document.activeElement);
+  const next=e.key==='Home'?0:e.key==='End'?entries.length-1:(current+(e.key==='ArrowDown'?1:-1)+entries.length)%entries.length;
+  entries[next].focus();
+ }
 };
 document.addEventListener('pointerdown',e=>{if(!$('#task-context-menu').contains(e.target))closeTaskMenu();});
 document.addEventListener('scroll',()=>closeTaskMenu(),true);
