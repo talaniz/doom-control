@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {ProjectsReader,readMetadata,projectRepositories} from './projects.mjs';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {loadUsers,authenticate} from './auth.mjs';
@@ -8,6 +9,7 @@ import {fileURLToPath} from 'node:url';
 import WebSocket from 'ws';
 const root=fileURLToPath(new URL('.',import.meta.url));
 const config=JSON.parse(readFileSync(process.env.DOOM_CONFIG || root+'config.json'));
+const projects=new ProjectsReader(()=>readMetadata(config.primeMover));
 const state=process.env.DOOM_STATE_DIR || root+'.private/';
 const users=loadUsers(join(state,'users.json'));
 const uploads=new UploadStore(state);
@@ -58,6 +60,18 @@ async function handle(req,res){
   }
   if(path.startsWith('/api/')){
    const session=auth(req);if(!session)return json(res,401,{error:'Sign in to continue'});
+   if(path==='/api/projects'||path.startsWith('/api/projects/')){
+    if(req.method!=='GET')return json(res,405,{error:'Projects metadata is read-only'});
+    const id=path==='/api/projects'?null:path.slice('/api/projects/'.length);
+    if(id!==null&&!Object.hasOwn(projectRepositories,id))return json(res,404,{error:'Project not found'});
+    const result=await projects.read();
+    if(id!==null&&result.snapshot){
+     const selected=result.snapshot.projects.filter(p=>p.id===id);
+     if(!selected.length)return json(res,404,{error:'Project not found'});
+     return json(res,200,{...result,snapshot:{...result.snapshot,projects:selected}});
+    }
+    return json(res,200,result);
+   }
    if(path==='/api/uploads'||path.startsWith('/api/uploads/')){
     if(session.user.role!=='admin')return json(res,403,{error:'Read-only account: administrator permission required'});
     if(req.method==='POST'&&path==='/api/uploads')return json(res,201,await uploads.save(req,session.user.username));
@@ -103,7 +117,7 @@ async function handle(req,res){
    }
    return json(res,404,{error:'Not found'});
   }
-  const assets={'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/links.js':['links.js','text/javascript; charset=utf-8'],'/picker.js':['picker.js','text/javascript; charset=utf-8'],'/styles.css':['styles.css','text/css; charset=utf-8'],'/node_modules/marked/lib/marked.esm.js':['../node_modules/marked/lib/marked.esm.js','text/javascript; charset=utf-8'],'/node_modules/dompurify/dist/purify.es.mjs':['../node_modules/dompurify/dist/purify.es.mjs','text/javascript; charset=utf-8']};
+  const assets={'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/links.js':['links.js','text/javascript; charset=utf-8'],'/picker.js':['picker.js','text/javascript; charset=utf-8'],'/projects.js':['projects.js','text/javascript; charset=utf-8'],'/styles.css':['styles.css','text/css; charset=utf-8'],'/node_modules/marked/lib/marked.esm.js':['../node_modules/marked/lib/marked.esm.js','text/javascript; charset=utf-8'],'/node_modules/dompurify/dist/purify.es.mjs':['../node_modules/dompurify/dist/purify.es.mjs','text/javascript; charset=utf-8']};
   if(req.method!=='GET'||!assets[path])return json(res,404,{error:'Not found'});
   const [file,type]=assets[path];res.setHeader('Content-Type',type);res.end(readFileSync(root+'dist/'+file));
  }catch(e){json(res,e.status||400,{error:e.message})}
