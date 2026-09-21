@@ -72,8 +72,10 @@ export function createProjectsView({ root, read, intervalMs = 15000 }) {
         node("h1", "Projects"),
         node("p", "Read-only project status.", "muted"),
       );
-      const refresh = button(loading ? "Refreshing…" : "Refresh projects", () =>
-        refreshData(),
+      const refresh = button(
+        loading ? "Refreshing…" : "Refresh projects",
+        () => refreshData(),
+        "refresh",
       );
       refresh.disabled = loading;
       heading.append(title, refresh);
@@ -188,7 +190,14 @@ export function createProjectsView({ root, read, intervalMs = 15000 }) {
     if (!active || pending) return;
     const epoch = generation;
     pending = true;
+    let restoreRefreshFocus = doc.activeElement?.dataset.focusKey === "refresh";
+    const movedFocus = () => {
+      restoreRefreshFocus = false;
+    };
     render(true);
+    doc.addEventListener("focusin", movedFocus);
+    doc.addEventListener("pointerdown", movedFocus);
+
     try {
       const result = await read();
       if (epoch !== generation || !active) return;
@@ -201,9 +210,17 @@ export function createProjectsView({ root, read, intervalMs = 15000 }) {
         error: "Project metadata unavailable",
       };
     } finally {
+      doc.removeEventListener("focusin", movedFocus);
+      doc.removeEventListener("pointerdown", movedFocus);
       if (epoch === generation) {
         pending = false;
-        if (active) render();
+        if (active) {
+          render();
+          if (restoreRefreshFocus && doc.activeElement === doc.body)
+            root
+              .querySelector('[data-focus-key="refresh"]')
+              ?.focus({ preventScroll: true });
+        }
       }
     }
   }

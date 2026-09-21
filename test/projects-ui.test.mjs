@@ -105,3 +105,30 @@ test("background refresh preserves keyboard focus on the same project action", a
   );
   view.reset();
 });
+test("manual refresh restores keyboard focus unless the user moves elsewhere while waiting", async () => {
+  let resolve;
+  let first = true;
+  const { root, view } = setup(() =>
+    first
+      ? ((first = false),
+        Promise.resolve({ state: "fresh", snapshot: snapshot(), error: null }))
+      : new Promise((r) => (resolve = r)),
+  );
+  await view.show();
+  root.querySelector("header button").focus();
+  let pending = view.refresh();
+  resolve({ state: "fresh", snapshot: snapshot(), error: null });
+  await pending;
+  assert.equal(
+    root.ownerDocument.activeElement.textContent,
+    "Refresh projects",
+  );
+  const outside = root.ownerDocument.createElement("button");
+  root.ownerDocument.body.append(outside);
+  pending = view.refresh();
+  outside.focus();
+  resolve({ state: "fresh", snapshot: snapshot(), error: null });
+  await pending;
+  assert.equal(root.ownerDocument.activeElement, outside);
+  view.reset();
+});

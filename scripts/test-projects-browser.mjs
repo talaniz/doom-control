@@ -342,10 +342,11 @@ try {
   );
   const refresh = async () => {
     await sleep(5100);
-    await js('document.querySelector("#projects-view header button").click()');
+    await js('document.querySelector("#projects-view header button").focus();document.querySelector("#projects-view header button").click()');
     await wait(
       '!document.querySelector("#projects-view header button").disabled',
     );
+    assert.equal(await js('document.activeElement === document.querySelector("#projects-view header button")'),true,'Refresh retains keyboard focus');
   };
   mode = "active";
   await refresh();
