@@ -1,0 +1,101 @@
+name: Bug report
+description: Report unexpected behavior in DOOM Dashboard with reproduction steps.
+title: '[Bug]: '
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |-
+        Use this form for DOOM Dashboard. Search existing issues first. Do not include passwords, tokens, private conversations, or unredacted logs/screenshots.
+
+        Submitting an issue does not authorize Prime Mover to execute it. An allowlisted maintainer must review the completed contract and separately apply `codex-ready`. Fill the four contract fields with concrete prose or lists; keep their headings intact and avoid TODO/TBD placeholders.
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: Summarize the problem and the behavior that needs to be restored.
+      placeholder: When I ..., the system ... instead of ...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Give the smallest repeatable sequence. If intermittent, describe the circumstances
+        and frequency.
+      placeholder: |-
+        1. Start from ...
+        2. Perform ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should happen under those conditions?
+      placeholder: I expected ...
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead? Include sanitized error text if useful.
+      placeholder: Instead, ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: DOOM release or commit, browser/version, desktop or mobile, and account role (admin
+        or viewer). Do not include account credentials.
+      placeholder: |-
+        Version or commit: ...
+        Environment: ...
+    validations:
+      required: false
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Describe what is included and excluded. Mention affected areas and dependencies; do
+        not guess file paths if you do not know them.
+      placeholder: |-
+        Included: ...
+        Excluded: ...
+        Dependencies or prerequisites: ...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Describe the observable fixed behavior and relevant regressions to avoid.
+      placeholder: |-
+        - Repeating the reproduction steps results in ...
+        - Existing ... continues to work.
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: How will the fix be checked? Include reproduction steps that should pass after the
+        fix and any relevant regression tests.
+      placeholder: |-
+        Repeat ... and confirm ...
+        Regression checks: ...
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized evidence
+      description: Optional logs or screenshots. Remove credentials, private conversations, and personal
+        data before posting.
+      placeholder: 'Sanitized evidence or related issue links: ...'
+    validations:
+      required: false

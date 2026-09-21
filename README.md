@@ -244,3 +244,9 @@ change; archived history remains in Codex's archive.
 `node scripts/test-archive-browser.mjs` exercises the actual frontend and bridge
 in Chromium with a fixture app server. `npm test` verifies the bridge's archive
 validation and role enforcement. No production deployment is performed by tests.
+
+## Reporting issues
+
+Use the feature, bug report, or documentation form when opening an issue. See
+[issue reporting](docs/issue-reporting.md) for the required fields and separate
+Prime Mover authorization step.

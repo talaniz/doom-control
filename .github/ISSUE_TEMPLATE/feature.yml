@@ -1,0 +1,61 @@
+name: Feature request
+description: Propose a new capability or improvement for DOOM Dashboard.
+title: '[Feature]: '
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |-
+        Use this form for DOOM Dashboard. Search existing issues first. Do not include passwords, tokens, private conversations, or unredacted logs/screenshots.
+
+        Submitting an issue does not authorize Prime Mover to execute it. An allowlisted maintainer must review the completed contract and separately apply `codex-ready`. Fill the four contract fields with concrete prose or lists; keep their headings intact and avoid TODO/TBD placeholders.
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What problem should this solve, for whom, and why? Describe the desired capability.
+      placeholder: As a ..., I need ... so that ...
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Describe what is included and excluded. Mention affected areas and dependencies; do
+        not guess file paths if you do not know them.
+      placeholder: |-
+        Included: ...
+        Excluded: ...
+        Dependencies or prerequisites: ...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List observable outcomes, including relevant failure or empty states.
+      placeholder: |-
+        - The user can ...
+        - When ... fails, ...
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: How should someone prove the feature works? Include steps, expected results, and relevant
+        tests; describe a manual check if you do not know commands.
+      placeholder: |-
+        Steps or commands: ...
+        Expected results: ...
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Optional designs, alternatives considered, and related issue links.
+      placeholder: 'Related issues or examples: ...'
+    validations:
+      required: false
