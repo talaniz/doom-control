@@ -2,7 +2,7 @@ import {renderLinkedText} from './links.js';
 import {createPromptPicker} from './picker.js';
 const $=s=>document.querySelector(s);
 let thread=null,turn=null,stream=null,connected=false,cursor=null,selection=0,starting=false,loadingTask=false,permissionLabel='Workspace edits · Approve for me';
-let taskSettings=null,renameId=null,renameSaving=false,renameEpoch=0;
+let taskSettings=null,renameId=null,renameSaving=false,renameEpoch=0,renameTrigger=null,contextTarget=null;
 let currentUser=null,authEpoch=0,attachments=[],uploading=false,attachmentEpoch=0;
 const canWrite=()=>currentUser?.role==='admin';
 const requests=new Map(),items=new Map();
@@ -44,25 +44,42 @@ async function attachFiles(files){
   }catch(error){if(epoch===attachmentEpoch){attachments=attachments.filter(a=>a!==entry);notice(error.message);}break;}
  }}finally{if(epoch===attachmentEpoch){uploading=false;$('#file-input').value='';drawAttachments();controls();}}
 }
-function controls(){ picker.update();$('#rename-task').hidden=!canWrite()||!thread;$('#rename-task').disabled=!connected||loadingTask||starting||renameSaving;$('#rename-save').disabled=renameSaving||!connected;$('#rename-save').textContent=renameSaving?'Saving…':'Save name';$('#rename-cancel').disabled=renameSaving;$('#task-name').disabled=renameSaving; $('#mode').disabled=!connected||!!turn||starting||loadingTask;$('#mode-help').textContent=$('#mode').value==='plan'?'Plan the approach before implementation. Applies to your next prompt.':'Work on the task. Applies to your next prompt.'; $('#composer').hidden=!canWrite();$('#new-task').hidden=!canWrite();$('#read-only').hidden=canWrite();$('#identity').textContent=currentUser?`${currentUser.username} · ${canWrite()?'Admin':'Read-only'}`:''; $('#send').disabled=!connected||!!turn||starting||loadingTask||uploading||attachments.some(a=>a.removing);$('#attach').disabled=starting||uploading||loadingTask||attachments.length>=5;$('#new-task').disabled=starting;$('#stop').disabled=loadingTask;$('#stop').hidden=!canWrite()||!turn;$('#new-settings').hidden=!!thread;$('#run-status').textContent=turn?'Codex is working…':permissionLabel;$('#connection').textContent=connected?'App server connected':'Reconnecting…'; }
-function lock(){closeRename();authEpoch++;resetAttachments();selection++;currentUser=null;taskSettings=null;$('#mode').value='default';thread=null;turn=null;starting=false;loadingTask=false;items.clear();$('#conversation').replaceChildren();$('#tasks').replaceChildren();$('#prompt').value='';notice('');stream?.close();stream=null;$('#login').hidden=false;$('#workspace').hidden=true;connected=false;requests.clear();$('#approvals').replaceChildren();controls()}
-async function list(more=false){const b=await rpc('thread/list',{limit:30,sortKey:'updated_at',...(more&&cursor?{cursor}:{})});if(!more)$('#tasks').replaceChildren();cursor=b.nextCursor;$('#more').hidden=!cursor;for(const t of b.data){const btn=el('button',(t.name||t.preview||'Untitled task').slice(0,100));btn.dataset.id=t.id;btn.dataset.preview=(t.preview||'Untitled task').slice(0,100);btn.classList.toggle('selected',thread?.id===t.id);btn.append(el('small',new Date(t.updatedAt*1000).toLocaleDateString()));btn.onclick=()=>openTask(t.id).catch(e=>notice(e.message));$('#tasks').append(btn)}}
+function controls(){ if(!canWrite()||!connected||loadingTask||starting)closeTaskMenu();picker.update();$('#rename-task').hidden=!canWrite()||!thread;$('#rename-task').disabled=!connected||loadingTask||starting||renameSaving;$('#rename-save').disabled=renameSaving||!connected;$('#rename-save').textContent=renameSaving?'Saving…':'Save name';$('#rename-cancel').disabled=renameSaving;$('#task-name').disabled=renameSaving; $('#mode').disabled=!connected||!!turn||starting||loadingTask;$('#mode-help').textContent=$('#mode').value==='plan'?'Plan the approach before implementation. Applies to your next prompt.':'Work on the task. Applies to your next prompt.'; $('#composer').hidden=!canWrite();$('#new-task').hidden=!canWrite();$('#read-only').hidden=canWrite();$('#identity').textContent=currentUser?`${currentUser.username} · ${canWrite()?'Admin':'Read-only'}`:''; $('#send').disabled=!connected||!!turn||starting||loadingTask||uploading||attachments.some(a=>a.removing);$('#attach').disabled=starting||uploading||loadingTask||attachments.length>=5;$('#new-task').disabled=starting;$('#stop').disabled=loadingTask;$('#stop').hidden=!canWrite()||!turn;$('#new-settings').hidden=!!thread;$('#run-status').textContent=turn?'Codex is working…':permissionLabel;$('#connection').textContent=connected?'App server connected':'Reconnecting…'; }
+function lock(){closeTaskMenu();closeRename();authEpoch++;resetAttachments();selection++;currentUser=null;taskSettings=null;$('#mode').value='default';thread=null;turn=null;starting=false;loadingTask=false;items.clear();$('#conversation').replaceChildren();$('#tasks').replaceChildren();$('#prompt').value='';notice('');stream?.close();stream=null;$('#login').hidden=false;$('#workspace').hidden=true;connected=false;requests.clear();$('#approvals').replaceChildren();controls()}
+async function list(more=false){const b=await rpc('thread/list',{limit:30,sortKey:'updated_at',...(more&&cursor?{cursor}:{})});closeTaskMenu();if(!more)$('#tasks').replaceChildren();cursor=b.nextCursor;$('#more').hidden=!cursor;for(const t of b.data){const btn=el('button',(t.name||t.preview||'Untitled task').slice(0,100));btn.taskSummary=t;btn.dataset.id=t.id;if(canWrite())btn.setAttribute('aria-haspopup','menu');btn.oncontextmenu=e=>openTaskMenu(e,btn);btn.onkeydown=e=>{if(e.key==='ContextMenu'||(e.shiftKey&&e.key==='F10'))openTaskMenu(e,btn);};btn.dataset.preview=(t.preview||'Untitled task').slice(0,100);btn.classList.toggle('selected',thread?.id===t.id);btn.append(el('small',new Date(t.updatedAt*1000).toLocaleDateString()));btn.onclick=()=>openTask(t.id).catch(e=>notice(e.message));$('#tasks').append(btn)}}
 function title(){ $('#task-title').textContent=thread?.name||thread?.preview?.slice(0,90)||'Your next move.';$('#task-meta').textContent=thread?thread.cwd:'Choose a task or start something new.';for(const b of $('#tasks').children)b.classList.toggle('selected',b.dataset.id===thread?.id);controls() }
 function setTaskName(id,name){
  if(thread?.id===id){thread.name=name;title();}
- for(const button of $('#tasks').children)if(button.dataset.id===id)button.firstChild.textContent=(name||button.dataset.preview||'Untitled task').slice(0,100);
+ for(const button of $('#tasks').children)if(button.dataset.id===id){button.taskSummary.name=name;button.firstChild.textContent=(name||button.dataset.preview||'Untitled task').slice(0,100);}
 }
-function closeRename(){renameEpoch++;renameId=null;renameSaving=false;$('#rename-dialog').close();}
-function openRename(){
- if(!canWrite()||!thread||!connected||loadingTask||starting)return;
- renameEpoch++;renameId=thread.id;$('#task-name').value=(thread.name||thread.preview||'').slice(0,120);$('#rename-error').textContent='';controls();$('#rename-dialog').showModal();$('#task-name').focus();$('#task-name').select();
+function closeTaskMenu(restoreFocus=false){
+ const trigger=contextTarget;contextTarget=null;$('#task-context-menu').hidden=true;
+ if(restoreFocus&&trigger?.isConnected)trigger.focus();
+}
+function openTaskMenu(event,button){
+ if(!canWrite()||!connected||loadingTask||starting||renameSaving)return;
+ event.preventDefault();closeTaskMenu();contextTarget=button;
+ const menu=$('#task-context-menu'),rect=button.getBoundingClientRect();
+ const keyboard=event.type==='keydown';menu.hidden=false;
+ menu.style.left=Math.max(0,Math.min(keyboard?rect.left:event.clientX,innerWidth-menu.offsetWidth))+'px';
+ menu.style.top=Math.max(0,Math.min(keyboard?rect.bottom:event.clientY,innerHeight-menu.offsetHeight))+'px';
+ $('#context-rename').focus();
+}
+function closeRename(){
+ renameEpoch++;renameId=null;renameSaving=false;$('#rename-dialog').close();
+ if(renameTrigger?.isConnected)renameTrigger.focus();renameTrigger=null;
+}
+function openRename(target=thread,trigger=$('#rename-task')){
+ if(!canWrite()||!target||!connected||loadingTask||starting||renameSaving)return;
+ closeTaskMenu();renameTrigger=trigger;
+ renameEpoch++;renameId=target.id;$('#task-name').value=(target.name||target.preview||'').slice(0,120);$('#rename-error').textContent='';controls();$('#rename-dialog').showModal();$('#task-name').focus();$('#task-name').select();
 }
 async function saveRename(){
  if(!canWrite()||!renameId||renameSaving)return;
  const name=$('#task-name').value.trim();
  if(!name||name.length>120||/[\u0000-\u001f\u007f]/u.test(name)){$('#rename-error').textContent='Use a name of 1–120 characters without control characters.';return;}
  const id=renameId,serial=renameEpoch;renameSaving=true;$('#rename-error').textContent='';controls();
- try{await rpc('thread/name/set',{threadId:id,name});if(serial!==renameEpoch)return;setTaskName(id,name);closeRename();$('#rename-task').focus();}
+ try{await rpc('thread/name/set',{threadId:id,name});if(serial!==renameEpoch)return;setTaskName(id,name);closeRename();}
  catch(error){if(serial===renameEpoch)$('#rename-error').textContent=error.message;}
  finally{if(serial===renameEpoch)renameSaving=false;controls();}
 }
@@ -117,7 +134,15 @@ async function enter(){
 const picker=createPromptPicker({prompt:$('#prompt'),panel:$('#prompt-picker'),rpc,context:()=>({key:authEpoch+'|'+(thread?.cwd||$('#cwd').value),cwd:thread?.cwd||$('#cwd').value,enabled:canWrite()&&connected&&!loadingTask&&!starting&&!turn})});
 $('#cwd').addEventListener('input',()=>picker.update());
 $('#login-form').onsubmit=async e=>{e.preventDefault();try{await api('login',{username:$('#username').value,password:$('#password').value});$('#password').value='';$('#login-error').textContent='';await enter()}catch(e){$('#login-error').textContent=e.message}};
-$('#rename-task').onclick=openRename;
+$('#rename-task').onclick=()=>openRename();
+$('#context-rename').onclick=()=>{if(contextTarget)openRename(contextTarget.taskSummary,contextTarget);};
+$('#task-context-menu').onkeydown=e=>{
+ if(e.key==='Escape'){e.preventDefault();closeTaskMenu(true);}
+ else if(e.key==='Tab')closeTaskMenu(true);
+};
+document.addEventListener('pointerdown',e=>{if(!$('#task-context-menu').contains(e.target))closeTaskMenu();});
+document.addEventListener('scroll',()=>closeTaskMenu(),true);
+window.addEventListener('resize',()=>closeTaskMenu());
 $('#rename-form').onsubmit=e=>{e.preventDefault();saveRename();};
 $('#rename-cancel').onclick=()=>{closeRename();controls();};
 $('#rename-dialog').oncancel=e=>{e.preventDefault();if(!renameSaving){closeRename();controls();}};

@@ -210,7 +210,9 @@ coverage; real app-server invocation is a separate deployment/review diagnostic.
 
 ### Rename tasks
 
-Open a task and select **Rename** beside its title. Administrators can enter a
+Right-click a task in the sidebar and choose **Rename**, or open a task and select
+**Rename** beside its title. The sidebar menu also opens with Shift+F10 or the
+Context Menu key. Renaming another task keeps your current conversation and draft open. Administrators can enter a
 name of 1–120 characters and save it, or cancel without changing anything.
 Leading/trailing whitespace is trimmed; empty names and control characters are
 rejected. The app server stores the name, so it survives refresh and reopening.
