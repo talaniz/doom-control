@@ -13,8 +13,8 @@ const users=loadUsers(join(state,'users.json'));
 const uploads=new UploadStore(state);
 const sessions=new Map(), streams=new Set(), pending=new Map(), approvals=new Map();
 let upstream,ready=false,nextId=1,retry;
-const allowed=new Set(['thread/list','thread/read','thread/start','thread/resume','turn/start','turn/interrupt','model/list']);
-const readMethods=new Set(['thread/list','thread/read','model/list']);
+const allowed=new Set(['thread/list','thread/read','thread/start','thread/resume','turn/start','turn/interrupt','model/list','skills/list','plugin/installed']);
+const readMethods=new Set(['thread/list','thread/read','model/list','skills/list','plugin/installed']);
 function broadcast(m){const s='data: '+JSON.stringify(m)+'\n\n';for(const r of streams){const session=sessions.get(r.session);if(!session||session.until<=Date.now()){r.end();streams.delete(r)}else if(!r.write(s))r.destroy();}}
 function send(m){if(upstream?.readyState!==WebSocket.OPEN)throw Error('App server is disconnected');upstream.send(JSON.stringify(m));}
 function rpc(method,params={}){return new Promise((resolve,reject)=>{const id=nextId++;const timer=setTimeout(()=>{pending.delete(id);reject(Error('App server request timed out'))},60000);pending.set(id,{resolve,reject,timer});try{send({id,method,params})}catch(e){clearTimeout(timer);pending.delete(id);reject(e)}});}
@@ -94,7 +94,7 @@ async function handle(req,res){
    }
    return json(res,404,{error:'Not found'});
   }
-  const assets={'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/links.js':['links.js','text/javascript; charset=utf-8'],'/styles.css':['styles.css','text/css; charset=utf-8'],'/node_modules/marked/lib/marked.esm.js':['../node_modules/marked/lib/marked.esm.js','text/javascript; charset=utf-8'],'/node_modules/dompurify/dist/purify.es.mjs':['../node_modules/dompurify/dist/purify.es.mjs','text/javascript; charset=utf-8']};
+  const assets={'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/links.js':['links.js','text/javascript; charset=utf-8'],'/picker.js':['picker.js','text/javascript; charset=utf-8'],'/styles.css':['styles.css','text/css; charset=utf-8'],'/node_modules/marked/lib/marked.esm.js':['../node_modules/marked/lib/marked.esm.js','text/javascript; charset=utf-8'],'/node_modules/dompurify/dist/purify.es.mjs':['../node_modules/dompurify/dist/purify.es.mjs','text/javascript; charset=utf-8']};
   if(req.method!=='GET'||!assets[path])return json(res,404,{error:'Not found'});
   const [file,type]=assets[path];res.setHeader('Content-Type',type);res.end(readFileSync(root+'dist/'+file));
  }catch(e){json(res,e.status||400,{error:e.message})}
