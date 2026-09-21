@@ -29,9 +29,10 @@ refresh/navigation, then cover the relevant success/failure/loading states at de
 as required by AGENTS.md. Record real integrated metadata evidence separately from
 fixture-only tests. Independent code and E2E reviews are required on the final PR head.
 
-Reader, authenticated API, and the Projects screen are implemented. The 26 automated
+Reader, authenticated API, and the Projects screen are implemented. The 27 automated
 tests and Chromium admin/viewer navigation, outage, and task preservation checks pass.
-Screenshot and real-service integration evidence is pending. No merge or deployment is performed by these changes.
+[Screenshot evidence](ui-evidence/prime-mover-projects/index.md) is captured and inspected.
+Real-service integration evidence and independent reviews are pending. No merge or deployment is performed by these changes.
 
 ## Configuration
 
