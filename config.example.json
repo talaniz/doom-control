@@ -3,5 +3,9 @@
     "127.0.0.1"
   ],
   "port": 8787,
-  "socket": "/home/YOUR_USER/.codex/app-server-control/app-server-control.sock"
+  "socket": "/home/YOUR_USER/.codex/app-server-control/app-server-control.sock",
+  "primeMover": {
+    "socket": "/media/YOUR_USER/postgresdata/codex-work/runtime/prime-mover/metadata.sock",
+    "tokenFile": "/home/YOUR_USER/.config/prime-mover/metadata.token"
+  }
 }

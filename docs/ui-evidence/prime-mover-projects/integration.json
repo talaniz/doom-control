@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "heads": {
+    "primeMover": "ff3c676bcae5733922d04f45b10c048e6d8d9c69",
+    "doom": "28d4253ca16ba24634418826a19d088a371e74c3"
+  },
+  "schemaVersion": 1,
+  "realPrimeMoverCliMetadata": true,
+  "isolatedSyntheticJobs": true,
+  "twoDefaultProjects": true,
+  "sameIssueNumbersIsolated": true,
+  "globalLeaseContention": true,
+  "browserListDetail": true,
+  "pausedActiveQueueOutcomeBlocker": true,
+  "readsLeaveExecutionDigestUnchanged": "2c33c2a9db696196de63f6eba2dfa9b930104096d756799bad9bc42e4347144d",
+  "sourceStopStale": true,
+  "tasksUsableDuringOutage": true,
+  "unauthenticatedDenied": true,
+  "productionChanged": false
+}

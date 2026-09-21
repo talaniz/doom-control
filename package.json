@@ -11,7 +11,7 @@
   "description": "Private LAN and WireGuard browser interface for the Pi Codex app server",
   "scripts": {
     "start": "node server.mjs",
-    "check": "node --check server.mjs && node --check auth.mjs && node --check scripts/provision-users.mjs && node --check dist/app.js && node --check uploads.mjs && node --check dist/links.js && node --check dist/picker.js",
+    "check": "node --check server.mjs && node --check auth.mjs && node --check scripts/provision-users.mjs && node --check dist/app.js && node --check uploads.mjs && node --check dist/links.js && node --check dist/picker.js && node --check projects.mjs && node --check dist/projects.js",
     "test": "node --test test/*.test.mjs",
     "users:provision": "node scripts/provision-users.mjs"
   },
