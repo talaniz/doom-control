@@ -135,7 +135,31 @@ async function openTask(id){
 }
 function newTask(){if(!canWrite()||starting)return;resetTask();}
 function resetTask(){picker.reset();resetAttachments();taskSettings=null;$('#mode').value='default';loadingTask=false;permissionLabel='Workspace edits · Approve for me';selection++;thread=null;turn=null;items.clear();$('#conversation').replaceChildren(el('div','Start a task with your first prompt.','empty'));title();drawRequests();$('#prompt').focus()}
-async function sendPrompt(text){if(!canWrite())throw Error('Read-only account');if(!connected||loadingTask)throw Error('Wait for the selected task to connect.');if(uploading||attachments.some(a=>a.removing))throw Error('Wait for attachment changes to finish');if(!text.trim()&&!attachments.length)throw Error('Enter a prompt or attach a file');if(turn||starting)throw Error('Wait for this turn to finish or stop it first');const selectedInputs=picker.inputs(text);starting=true;controls();notice('');try{if(!thread){const b=await rpc('thread/start',{cwd:$('#cwd').value,approvalPolicy:'on-request',approvalsReviewer:'auto_review',sandbox:'workspace-write',...($('#model').value?{model:$('#model').value}:{})});taskSettings={model:b.model,reasoning_effort:b.reasoningEffort??null,developer_instructions:null};picker.adoptContext(authEpoch+'|'+(b.thread.cwd||$('#cwd').value));renderThread(b.thread)}if(!taskSettings?.model)throw Error('Task settings unavailable. Reopen the task and try again.');const b=await rpc('turn/start',{threadId:thread.id,collaborationMode:{mode:$('#mode').value,settings:taskSettings},input:[{type:'text',text:text.trim()?text:'Please review the attached files.'},...selectedInputs],approvalPolicy:'on-request',approvalsReviewer:'auto_review'},attachments.map(a=>a.id));resetAttachments(false);turn=b.turn.status==='inProgress'?b.turn.id:null;$('#prompt').value='';picker.reset();await list();return{threadId:thread.id,turnId:b.turn.id}}finally{starting=false;controls()}}
+async function sendPrompt(text){
+ if(!canWrite())throw Error('Read-only account');
+ if(!connected||loadingTask)throw Error('Wait for the selected task to connect.');
+ if(uploading||attachments.some(a=>a.removing))throw Error('Wait for attachment changes to finish');
+ if(!text.trim()&&!attachments.length)throw Error('Enter a prompt or attach a file');
+ if(turn||starting)throw Error('Wait for this turn to finish or stop it first');
+ const selectedInputs=picker.inputs(text),serial=selection,epoch=authEpoch;
+ const current=()=>serial===selection&&epoch===authEpoch;
+ starting=true;controls();notice('');
+ try{
+  if(!thread){
+   const b=await rpc('thread/start',{cwd:$('#cwd').value,approvalPolicy:'on-request',approvalsReviewer:'auto_review',sandbox:'workspace-write',...($('#model').value?{model:$('#model').value}:{})});
+   if(!current()||archivedIds.has(b.thread.id))return;
+   taskSettings={model:b.model,reasoning_effort:b.reasoningEffort??null,developer_instructions:null};
+   picker.adoptContext(authEpoch+'|'+(b.thread.cwd||$('#cwd').value));renderThread(b.thread);
+  }
+  if(!taskSettings?.model)throw Error('Task settings unavailable. Reopen the task and try again.');
+  const threadId=thread.id;
+  const b=await rpc('turn/start',{threadId,collaborationMode:{mode:$('#mode').value,settings:taskSettings},input:[{type:'text',text:text.trim()?text:'Please review the attached files.'},...selectedInputs],approvalPolicy:'on-request',approvalsReviewer:'auto_review'},attachments.map(a=>a.id));
+  if(!current()||archivedIds.has(threadId))return;
+  resetAttachments(false);turn=b.turn.status==='inProgress'?b.turn.id:null;$('#prompt').value='';picker.reset();
+  await list();return{threadId,turnId:b.turn.id};
+ }catch(error){if(current())throw error;}
+ finally{if(epoch===authEpoch){starting=false;controls();}}
+}
 function drawRequests(){const panel=$('#approvals');panel.replaceChildren();for(const r of requests.values()){const p=r.params;const box=el('div',undefined,'approval');box.append(el('h3',r.method.endsWith('requestUserInput')?'Codex has a question':'Your approval is needed'));if(p.threadId!==thread?.id){const open=el('button','Open requesting task');open.onclick=()=>openTask(p.threadId).catch(e=>notice(e.message));box.append(open)}
  if(!canWrite()){box.append(el('p','An administrator must respond to this request.'));panel.append(box);continue;}
  const respond=async result=>{try{await api('respond',{id:r.id,result});requests.delete(String(r.id));drawRequests()}catch(e){notice(e.message)}};
