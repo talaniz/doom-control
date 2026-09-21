@@ -5,7 +5,7 @@ export function createPromptPicker({prompt,panel,rpc,context}){
  let previous=prompt.value,references=[];
  const node=(tag,text)=>{const el=doc.createElement(tag);if(text!==undefined)el.textContent=text;return el;};
  const hide=()=>{panel.hidden=true;prompt.setAttribute('aria-expanded','false');prompt.removeAttribute('aria-activedescendant');trigger=null;};
- function reset(){generation++;catalog=null;loading=false;errors=[];references=[];previous=prompt.value;dismissed=null;hide();}
+ function reset({keepReferences=false}={}){generation++;catalog=null;loading=false;errors=[];if(!keepReferences)references=[];previous=prompt.value;dismissed=null;hide();}
  function state(){const c=context();if(c.key!==key){key=c.key;reset();}if(!c.enabled)hide();return c;}
  function sync(){
   const value=prompt.value;if(value===previous)return;
@@ -89,6 +89,8 @@ export function createPromptPicker({prompt,panel,rpc,context}){
  });
  return {
   update:()=>{state();},reset,
+  // A successful thread/start may normalize cwd without changing the draft's context.
+  adoptContext(nextKey){sync();reset({keepReferences:true});key=nextKey;},
   inputs(text){state();sync();const seen=new Set();return references.filter(ref=>{
    const valid=text.slice(ref.start,ref.end)===ref.token&&(ref.start===0||/\s/.test(text[ref.start-1]))&&(ref.end===text.length||!/[-\w:.]/u.test(text[ref.end]));
    if(!valid||seen.has(ref.input.path))return false;seen.add(ref.input.path);return true;

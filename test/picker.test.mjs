@@ -37,3 +37,8 @@ test('reselecting an identical mention replaces its previous target',async()=>{
  f.prompt.setSelectionRange('$review'.length,'$review'.length);f.prompt.dispatchEvent(new f.dom.window.Event('click'));f.panel.querySelectorAll('[role=option]')[1].click();
  assert.deepEqual(f.picker.inputs(f.prompt.value),[{type:'skill',name:'review',path:'/two/SKILL.md'}]);
 });
+test('adopting the server cwd preserves a draft while actual context changes clear it',async()=>{
+ const f=fixture();f.type('$rev');await tick();f.press('Enter');const selected=f.picker.inputs(f.prompt.value);
+ f.picker.adoptContext('normalized');f.context('normalized');assert.deepEqual(f.picker.inputs(f.prompt.value),selected);
+ f.context('other-task');assert.deepEqual(f.picker.inputs(f.prompt.value),[]);
+});
