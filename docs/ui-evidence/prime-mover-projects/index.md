@@ -1,6 +1,6 @@
 # Projects screen evidence
 
-Captured code: `3adaa777538f82affe1045f474a5cdcfadaf0fb9`.
+Captured code: `28d4253ca16ba24634418826a19d088a371e74c3`.
 
 Reproduce from an isolated checkout with Node 22 and Chromium installed:
 
@@ -36,7 +36,12 @@ The capture run passed admin/viewer authentication, list/detail and refresh,
 unavailable/stale/loading/empty states, task/draft preservation, task controls during
 a metadata outage, POST denial, logout clearing, viewport width assertions, and zero
 JavaScript exceptions. DOM coverage also verifies focus preservation on background
-refresh and ignores late responses after logout. Full automated suite: 27 passing.
+refresh and ignores late responses after logout. Full automated suite: 28 passing.
 
-These are fixture integration results. Actual Prime Mover service integration and
-independent review are separate outstanding gates and are not implied by screenshots.
+These are fixture integration results. Actual Prime Mover service integration is
+recorded separately in [integration.json](integration.json); independent final-head
+reviews remain separate gates and are not implied by screenshots.
+
+Recaptured and reinspected all 14 images after the accepted P3 Refresh-focus fix.
+The browser run additionally asserts focus returns to Refresh after completion; DOM
+coverage verifies no focus stealing if the user moves elsewhere while waiting.

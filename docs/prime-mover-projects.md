@@ -29,7 +29,7 @@ refresh/navigation, then cover the relevant success/failure/loading states at de
 as required by AGENTS.md. Record real integrated metadata evidence separately from
 fixture-only tests. Independent code and E2E reviews are required on the final PR head.
 
-Reader, authenticated API, and the Projects screen are implemented. The 27 automated
+Reader, authenticated API, and the Projects screen are implemented. The 28 automated
 tests and Chromium admin/viewer navigation, outage, and task preservation checks pass.
 [Screenshot evidence](ui-evidence/prime-mover-projects/index.md) is captured and inspected.
 [Real-service integration evidence](ui-evidence/prime-mover-projects/integration.json) passes;
@@ -76,3 +76,8 @@ The initial integration attempt selected a card by index, incorrectly assuming t
 fixture server's order matched the actual registry's order. The test now selects the
 stable project ID; the corrected run passed. This was a test-assumption failure, not
 a product defect or evidence of an integration pass on that first run.
+
+Code-review finding [P3 Refresh focus](https://github.com/talaniz/doom-control/pull/14#issuecomment-5754850277)
+was accepted and fixed. The failing DOM regression now passes, including user-moved
+focus; all 28 tests, Chromium focus checks, and actual-service integration pass.
+All affected screenshots were recaptured and inspected at the fix commit.
