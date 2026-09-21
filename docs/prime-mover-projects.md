@@ -32,7 +32,8 @@ fixture-only tests. Independent code and E2E reviews are required on the final P
 Reader, authenticated API, and the Projects screen are implemented. The 27 automated
 tests and Chromium admin/viewer navigation, outage, and task preservation checks pass.
 [Screenshot evidence](ui-evidence/prime-mover-projects/index.md) is captured and inspected.
-Real-service integration evidence and independent reviews are pending. No merge or deployment is performed by these changes.
+[Real-service integration evidence](ui-evidence/prime-mover-projects/integration.json) passes;
+independent reviews are pending. No merge or deployment is performed by these changes.
 
 ## Configuration
 
@@ -57,3 +58,21 @@ Leaving Projects stops refreshes; logout clears rendered and pending session dat
   fixture and Chromium interactions; synthetic accounts only.
 - `DOOM_UI_EVIDENCE=docs/ui-evidence/prime-mover-projects node scripts/test-projects-browser.mjs`:
   the same checks plus desktop/mobile screenshots. Inspect every image before commit.
+
+Actual-service acceptance command (Prime Mover must already be built):
+
+```sh
+node scripts/test-projects-integration.mjs /path/to/prime-mover /verified/external/mount VERIFIED_UUID
+```
+
+It verifies the ext4 mount and creates an isolated temporary runtime, seeds synthetic
+jobs through the actual Store, runs the actual `metadata` CLI, and drives this dashboard
+with Chromium. It proves same-number cross-project isolation, global lease contention,
+paused/queued/active/outcome/blocker rendering, authorization, source-stop stale handling,
+and an unchanged execution-state digest across browser reads. It does not poll GitHub
+or launch an execution worker. Temporary runtime and browser processes are cleaned up.
+
+The initial integration attempt selected a card by index, incorrectly assuming the
+fixture server's order matched the actual registry's order. The test now selects the
+stable project ID; the corrected run passed. This was a test-assumption failure, not
+a product defect or evidence of an integration pass on that first run.
