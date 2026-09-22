@@ -1,0 +1,64 @@
+name: Bug report
+description: Report unexpected behavior in DOOM Dashboard with reproduction steps.
+title: '[Bug]: '
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |-
+        Use this form for DOOM Dashboard. Search existing issues first. Do not include passwords, tokens, private conversations, or unredacted logs/screenshots.
+
+        Submitting an issue does not authorize Prime Mover to execute it. An allowlisted maintainer must review the completed contract and separately apply `codex-ready`. Fill the four contract fields with concrete prose or lists; keep their headings intact and avoid TODO/TBD placeholders.
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: Summarize the bug, expected behavior, and actual behavior. Include sanitized error
+        text or evidence if useful.
+      placeholder: |-
+        Problem: ...
+        Expected behavior: ...
+        Actual behavior: ...
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: 'Describe affected areas, what the fix should exclude, and dependencies. Include the
+        environment when known: release/commit, browser/version, desktop or mobile, and account role.
+        Redact private details.'
+      placeholder: |-
+        Affected areas: ...
+        Excluded: ...
+        Environment (if known): ...
+        Dependencies: ...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Describe the observable fixed behavior and relevant regressions to avoid.
+      placeholder: |-
+        - Repeating the reproduction steps results in ...
+        - Existing ... continues to work.
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: Give the smallest reproduction sequence (or circumstances/frequency if intermittent),
+        expected results after the fix, and regression checks. Include all needed steps here rather than
+        referring to another field or comment.
+      placeholder: |-
+        Steps to reproduce:
+        1. Start from ...
+        2. Perform ...
+        3. Observe ...
+        Expected result after the fix: ...
+        Regression checks: ...
+    validations:
+      required: true

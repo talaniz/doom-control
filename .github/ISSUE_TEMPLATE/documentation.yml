@@ -1,0 +1,55 @@
+name: Documentation request
+description: Request new, corrected, or clearer documentation for DOOM Dashboard.
+title: '[Docs]: '
+labels:
+  - documentation
+body:
+  - type: markdown
+    attributes:
+      value: |-
+        Use this form for DOOM Dashboard. Search existing issues first. Do not include passwords, tokens, private conversations, or unredacted logs/screenshots.
+
+        Submitting an issue does not authorize Prime Mover to execute it. An allowlisted maintainer must review the completed contract and separately apply `codex-ready`. Fill the four contract fields with concrete prose or lists; keep their headings intact and avoid TODO/TBD placeholders.
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: Who needs this documentation, and what is missing, incorrect, or confusing?
+      placeholder: A reader trying to ... needs ...
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Identify affected page links or repository paths, or where a new document belongs.
+        Describe included/excluded changes and relevant source or issue links.
+      placeholder: |-
+        Affected pages or proposed location: ...
+        Included: ...
+        Excluded: ...
+        References and dependencies: ...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Describe what readers must be able to understand or accomplish after the update.
+      placeholder: |-
+        - The documentation explains ...
+        - Examples match ...
+        - Links resolve to ...
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: Describe a reader walkthrough and checks for links, examples, and commands. Documentation-only
+        work does not need artificial application tests.
+      placeholder: |-
+        Follow the instructions from ... and confirm ...
+        Check links/examples against ...
+    validations:
+      required: true
