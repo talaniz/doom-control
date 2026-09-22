@@ -101,7 +101,7 @@ async function list(more=false){
   if(serial===listEpoch&&epoch===authEpoch){listPending=false;$('#more').disabled=false;}
  }
 }
-function title(){ $('#task-title').textContent=thread?taskName(thread):'Your next move.';$('#task-meta').textContent=thread?thread.cwd:'Choose a task or start something new.';for(const b of $('#tasks').children)b.classList.toggle('selected',b.dataset.id===thread?.id);controls() }
+function title(){ $('#task-title').textContent=thread?taskName(thread):'Your next move.';$('#task-meta').textContent=thread?thread.cwd:canWrite()?'Choose a task or start something new.':'Choose a task from navigation.';for(const b of $('#tasks').children)b.classList.toggle('selected',b.dataset.id===thread?.id);controls() }
 function setTaskName(id,name){
  if(thread?.id===id){thread.name=name;title();}
  for(const button of $('#tasks').children)if(button.dataset.id===id){button.taskSummary.name=name;button.firstChild.textContent=taskName(button.taskSummary);}
@@ -186,8 +186,15 @@ async function openTask(id){
   renderThread(b.thread);if(narrowLayout())$('#task-title').focus({preventScroll:true});
  }finally{if(serial===selection){loadingId=null;loadingTask=false;controls()}}
 }
+function renderWelcome(){
+ const panel=el('section',undefined,'empty welcome');
+ panel.setAttribute('aria-labelledby','welcome-title');
+ const heading=el('h2','Ready when you are');heading.id='welcome-title';
+ panel.append(heading,el('p',canWrite()?'Choose a task from navigation, or write a prompt below to start.':'Choose a task from navigation to view the conversation.'));
+ $('#conversation').replaceChildren(panel);
+}
 function newTask(){if(!canWrite()||starting)return;showTasks();resetTask();}
-function resetTask(){picker.reset();resetAttachments();taskSettings=null;$('#mode').value='default';loadingTask=false;permissionLabel='Workspace edits · Approve for me';selection++;thread=null;turn=null;items.clear();$('#conversation').replaceChildren(el('div','Start a task with your first prompt.','empty'));title();drawRequests();$('#prompt').focus()}
+function resetTask(){picker.reset();resetAttachments();taskSettings=null;$('#mode').value='default';loadingTask=false;permissionLabel='Workspace edits · Approve for me';selection++;thread=null;turn=null;items.clear();renderWelcome();title();drawRequests();$('#prompt').focus()}
 async function sendPrompt(text){
  if(!canWrite())throw Error('Read-only account');
  if(!connected||loadingTask)throw Error('Wait for the selected task to connect.');
@@ -236,7 +243,7 @@ async function loadModels(){
 async function enter(){
  const status=await api('status');currentUser=status.user;
  $('#login').hidden=true;$('#workspace').hidden=false;connected=status.ready;
- if(!thread&&!$('#conversation').children.length)$('#conversation').append(el('div','Choose a task from navigation, or write a prompt to start.','empty'));
+ if(!thread){renderWelcome();title();}
  for(const r of status.pending)requests.set(String(r.id),r);
  drawRequests();controls();stream?.close();stream=new EventSource('/api/events');
  const epoch=authEpoch;
