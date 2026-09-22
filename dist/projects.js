@@ -1,5 +1,7 @@
 /** Read-only project metadata. Keep task DOM mounted while this view is open. */
-export function createProjectsView({ root, read, intervalMs = 15000 }) {
+export function createProjectsView({
+  root, read, intervalMs = 15000, now = Date.now,
+}) {
   const doc = root.ownerDocument;
   let active = false,
     generation = 0,
@@ -35,7 +37,35 @@ export function createProjectsView({ root, read, intervalMs = 15000 }) {
     );
     parent.append(line);
   }
-  function job(parent, label, value) {
+  const relativeTime = new Intl.RelativeTimeFormat("en", { numeric: "always" });
+  const exactTime = new Intl.DateTimeFormat(undefined, {
+    dateStyle: "full",
+    timeStyle: "long",
+  });
+  let expandedTimes = new Set();
+  function timestamp(parent, label, value, key, currentTime) {
+    const milliseconds = Date.parse(value);
+    if (!Number.isFinite(milliseconds)) {
+      field(parent, label, "Time unavailable");
+      return;
+    }
+    const seconds = (milliseconds - currentTime) / 1000;
+    const [unit, size] = Math.abs(seconds) < 60 ? ["second", 1]
+      : Math.abs(seconds) < 3600 ? ["minute", 60]
+      : Math.abs(seconds) < 86400 ? ["hour", 3600] : ["day", 86400];
+    const details = node("details", undefined, "project-time");
+    const relative = Math.round(seconds) === 0
+      ? "now"
+      : relativeTime.format(Math.round(seconds / size), unit);
+    const summary = node("summary", `${label}: ${relative}`);
+    summary.dataset.focusKey = key;
+    details.open = expandedTimes.has(key);
+    const time = node("time", exactTime.format(new Date(milliseconds)));
+    time.dateTime = value;
+    details.append(summary, time);
+    parent.append(details);
+  }
+  function job(parent, label, value, key, currentTime) {
     const section = node("div", undefined, "project-work");
     section.append(node("h3", label));
     if (!value)
@@ -55,11 +85,14 @@ export function createProjectsView({ root, read, intervalMs = 15000 }) {
           doc.createTextNode(" · "),
           link("Pull request", value.prUrl),
         );
-      if (value.at) field(section, "Recorded", value.at);
+      if (value.at) timestamp(section, "Recorded", value.at, key, currentTime);
     }
     parent.append(section);
   }
   function render(loading = false) {
+    const currentTime = now();
+    expandedTimes = new Set([...root.querySelectorAll(".project-time[open] summary")]
+      .map((summary) => summary.dataset.focusKey));
     const focused = root.contains(doc.activeElement)
       ? doc.activeElement.dataset.focusKey
       : null;
@@ -88,7 +121,7 @@ export function createProjectsView({ root, read, intervalMs = 15000 }) {
       if (!last) return;
       const { snapshot } = last;
       const age = snapshot
-        ? Date.now() - Date.parse(snapshot.observedAt)
+        ? currentTime - Date.parse(snapshot.observedAt)
         : Infinity;
       const state =
         last.state === "fresh" &&
@@ -116,9 +149,9 @@ export function createProjectsView({ root, read, intervalMs = 15000 }) {
               : "No project status is available. Try refreshing.",
           ),
         );
-      if (snapshot)
+      if (snapshot) {
+        timestamp(status, "Snapshot", snapshot.observedAt, "time:snapshot", currentTime);
         status.append(
-          node("p", `Snapshot: ${snapshot.observedAt}`),
           node(
             "p",
             snapshot.intakePaused
@@ -126,6 +159,7 @@ export function createProjectsView({ root, read, intervalMs = 15000 }) {
               : "Intake enabled globally",
           ),
         );
+      }
       root.append(status);
       if (!snapshot) return;
       let projects = snapshot.projects;
@@ -146,10 +180,11 @@ export function createProjectsView({ root, read, intervalMs = 15000 }) {
         field(card, "Base branch", p.baseBranch);
         field(card, "Tracking", p.tracking);
         field(card, "Queued", p.queuedJobs);
-        field(card, "Last poll", p.lastPollAt || "Never polled");
+        if (p.lastPollAt) timestamp(card, "Last poll", p.lastPollAt, `time:poll:${p.id}`, currentTime);
+        else field(card, "Last poll", "Never polled");
         field(card, "Poll status", p.pollState);
-        job(card, "Active work", p.activeJob);
-        job(card, "Latest outcome", p.latestOutcome);
+        job(card, "Active work", p.activeJob, `time:active:${p.id}`, currentTime);
+        job(card, "Latest outcome", p.latestOutcome, `time:outcome:${p.id}`, currentTime);
         field(card, "Blocker", p.blocker || "None recorded");
         if (!selected)
           card.append(

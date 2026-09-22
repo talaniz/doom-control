@@ -121,6 +121,13 @@ try {
     data.observedAt = new Date(
       mode === "stale" ? Date.now() - 300000 : Date.now(),
     ).toISOString();
+    data.projects[0].pollState = "fresh";
+    data.projects[0].lastPollAt = new Date(Date.now() - 120000).toISOString();
+    data.projects[0].latestOutcome = {
+      stage: "ready", prUrl: null,
+      issueUrl: "https://github.com/talaniz/prime-mover/issues/1",
+      at: new Date(Date.now() - 7200000).toISOString(),
+    };
     if (mode === "empty") data.projects = [];
     if (mode === "active") {
       data.intakePaused = true;
@@ -278,7 +285,9 @@ try {
         mobile,
         deviceScaleFactor: 1,
       });
-      await js('document.querySelector("#projects-view").scrollIntoView()');
+      await js(state === "exact-project-times"
+        ? 'document.querySelector(".project-card .project-time").scrollIntoView({block:"start"})'
+        : 'document.querySelector("#projects-view").scrollIntoView()');
       await js("document.fonts.ready");
       assert.equal(
         await js("document.documentElement.scrollWidth<=innerWidth"),
@@ -317,7 +326,26 @@ try {
   await wait(
     'document.querySelector("#projects-view").textContent.includes("DOOM Dashboard")',
   );
-  await capture("empty-work");
+  await capture("relative-times");
+  await js('document.querySelector(".project-time summary").focus()');
+  await call("Input.dispatchKeyEvent", { type: "keyDown", text: "\r", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+  await call("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+  await wait('document.querySelector(".project-time").open');
+  assert.match(await js('document.querySelector(".project-time time").textContent'), /2026/);
+  await capture("exact-snapshot-keyboard");
+  await call("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, mobile: true, deviceScaleFactor: 1 });
+  await call("Emulation.setTouchEmulationEnabled", { enabled: true });
+  await js('document.querySelector(".project-card .project-time summary").scrollIntoView({block:"center"})');
+  const point = await js('(()=>{const r=document.querySelector(".project-card .project-time summary").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()');
+  await call("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+  await call("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await wait('document.querySelector(".project-card .project-time").open');
+  await js('document.querySelectorAll(".project-card .project-time")[1].querySelector("summary").focus()');
+  await call("Input.dispatchKeyEvent", { type: "keyDown", text: " ", key: " ", code: "Space", windowsVirtualKeyCode: 32 });
+  await call("Input.dispatchKeyEvent", { type: "keyUp", key: " ", code: "Space", windowsVirtualKeyCode: 32 });
+  await wait('document.querySelectorAll(".project-card .project-time")[1].open');
+  await capture("exact-project-times");
+  await call("Emulation.setTouchEmulationEnabled", { enabled: false });
   assert.equal(await js('document.querySelector("#task-view").hidden'), true);
   assert.ok(!requests.slice(before).some((m) => m.method === "turn/start"));
   await js('document.querySelector("#show-tasks").click()');
