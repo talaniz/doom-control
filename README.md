@@ -263,3 +263,23 @@ initial prompt preview. Stored names are preserved because the app-server API
 does not distinguish generated titles from custom names. See the
 [issue 18 verification and UI evidence](docs/ui-evidence/task-list/index.md)
 for provenance rules, API limitations, tests, and synthetic screenshots.
+
+### Phone and tablet layout
+
+Below 1024 CSS pixels, use **Navigation** to open the task/project drawer. Close it
+with **Close navigation**, Escape, or a tap outside; choosing a task or project
+also closes it. Wider tablets and desktop retain the sidebar. The drawer keeps
+keyboard focus inside and resets cleanly when the screen changes orientation.
+
+Open a task and tap **Actions** for Rename or Archive. Existing desktop right-click
+and keyboard menus remain available. Read-only accounts cannot use write actions.
+New-task directory and model controls are under **Task settings**. The composer
+fields can scroll while Send/Stop remain visible, with safe-area spacing and height
+updates when the browser reports an on-screen keyboard viewport change.
+
+Run `node scripts/test-mobile-browser.mjs` for isolated Chromium touch/keyboard,
+phone/tablet/desktop, attachment, notification, and read-only checks. To also
+regenerate synthetic screenshot evidence, run
+`CAPTURE_UI=1 node scripts/test-mobile-browser.mjs`. Captures are written to
+`docs/ui-evidence/phone-tablet/`; inspect them before publishing. Chromium viewport
+emulation does not replace physical iOS/Android keyboard and browser-chrome testing.
