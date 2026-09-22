@@ -1,7 +1,8 @@
 # Issue 18: task list provenance and concise fallback titles
 
-Captured against the uncommitted implementation on base
-`643911acadc72e129a22617b5cc755e7505fe8c9`. The coordinator owns committing,
+Recaptured against the uncommitted review corrections on
+`8fa4eb541f82f25c01f8ea91decd9fc079bbe74d` (original issue base
+`643911acadc72e129a22617b5cc755e7505fe8c9`). The coordinator owns committing,
 publication, and independent code/E2E review. Those reviews are pending.
 The hashes below identify the actual captured files; compare them with the
 published implementation before attributing these captures to a final head.
@@ -75,9 +76,9 @@ connects to production. Archive capture opens and cancels the dialog only.
 Observed TDD evidence before executable edits: `node test/tasks-ui.test.mjs`
 exited 1 with two behavioral assertion failures: internal IDs were present in
 normal listing, and the fallback was six words rather than the expected four.
-After implementation, all five task UI regressions pass, including whitespace
+After implementation, all 16 task UI regressions pass, including whitespace
 boundaries, misleading user text, custom titles, pagination and stale responses.
-`npm run check` passes; final `npm test` passes 33/33 tests. The task-list Chromium
+`npm run check` passes; final `npm test` passes 44/44 tests. The task-list Chromium
 workflow passes with zero JavaScript exceptions and no document horizontal
 overflow at either viewport. The existing rename Chromium regression also passes,
 including keyboard/context menus, read-only access, live renames, failure/retry,
@@ -90,14 +91,59 @@ a fixture navigation race and another timed out in Page.navigate; explicit
 navigation waits and a bounded CDP timeout resolved them. These were not counted
 as passes. Final browser evidence is from the successful complete run.
 
-All listed PNGs were opened and inspected for readable text, wrapping, dialog
+All 24 listed PNGs were opened and inspected for readable text, wrapping, dialog
 bounds and synthetic-only content. Desktop shows the full conversation/composer;
 mobile uses the existing vertically scrolling page and horizontal task strip.
 Dialogs fit both viewports; long custom headings wrap without document overflow.
 No credentials, private prompts, or unrelated windows appear.
 
+## Accepted review corrections
+
+Only findings `code-review-1-8fa4eb541f82-001` and
+`code-review-1-8fa4eb541f82-002` are addressed in this correction round.
+
+- **001 — refresh/pagination:** Load more is disabled, and direct pagination
+  requests ignored, while a list request is pending. A refresh can still replace
+  an older page request; only the current request can update results, cursor or
+  pending state. On failure, the retained list's pagination becomes available
+  again. This deliberately blocks pagination rather than queuing an obsolete
+  cursor. Tests cover a held refresh followed by pagination, and obsolete page
+  responses resolving before and after a newer refresh. Assertions include
+  filtering, fresh cursors, preserved conversation and draft, and failure/retry.
+- **002 — keyboard focus:** Immediately before replacing buttons, the list reads
+  the current focus. A focused task or context-menu action returns focus to the
+  surviving task; if removed, the first visible task receives focus, or Refresh
+  when the list is empty. The menu closes deliberately. Focus elsewhere remains
+  untouched, including when moved into the composer during a pending response.
+  Tests cover task/menu targets, surviving/removed targets, an empty list, and
+  delayed responses. Chromium exercises actual Shift+F10 keyboard menus and
+  asserts the restored task matches `:focus-visible` at both viewport sizes.
+
+Before executable corrections, `node test/tasks-ui.test.mjs` exited 1 with
+six failing assertions: one stale-cursor request count, four task/menu focus
+cases, and the empty-list focus fallback. The contemporaneous
+[red-run TAP transcript](review-corrections-red.tap) was saved before modifying
+`dist/app.js`. Existing response-order and composer-focus cases already passed;
+they were retained as regression protection, not claimed as new red evidence.
+After the correction and a failure/retry test, the same command passes 16/16.
+The required checks pass (44/44 full-suite tests), as do both isolated Chromium
+scripts. One browser attempt failed because the fixture's ArrowDown key scrolled
+and dismissed its menu; using Shift to establish keyboard modality and waiting
+for animation frames resolved that harness issue. The full subsequent run passed.
+
+All captures were regenerated on the corrected implementation. Focus is visible
+in the gold outlines; the existing scroll container clips parts of the outer
+outline at its edges, while top/bottom focus indicators remain visible. No
+layout/style changes were introduced by these corrections. No additional
+refactoring was needed. Publication and independent re-review remain pending
+with the coordinator; these local results are not reviewer sign-off.
+
 | State / evidence | Desktop 1440 × 900 | Mobile 390 × 844 |
 | --- | --- | --- |
+| Pending refresh disables old-cursor pagination | [Pagination loading](desktop-pagination-loading.png) | [Pagination loading](mobile-pagination-loading.png) |
+| Keyboard menu before background update | [Keyboard menu](desktop-keyboard-menu.png) | [Keyboard menu](mobile-keyboard-menu.png) |
+| Surviving task regains visible focus after update | [Focus restored](desktop-focus-restored.png) | [Focus restored](mobile-focus-restored.png) |
+| Removed target moves focus to a surviving task | [Focus fallback](desktop-focus-fallback.png) | [Focus fallback](mobile-focus-fallback.png) |
 | User tasks visible; internal records absent; short preview title | [Tasks](desktop-tasks.png) | [Tasks](mobile-tasks.png) |
 | Rename prefilled with four-word fallback | [Rename](desktop-rename.png) | [Rename](mobile-rename.png) |
 | Archive confirmation uses the same fallback; cancelled | [Archive](desktop-archive.png) | [Archive](mobile-archive.png) |
@@ -110,8 +156,8 @@ No credentials, private prompts, or unrelated windows appear.
 Captured source SHA-256:
 
 ```text
-a49dec826d6af764d99adb140c341cccff144b9833944ba0ee5efb56a8e1b466  dist/app.js
+7cda513509db4e6c454c7a00a41b688878f032d4095d70ca2cd718260baae73a  dist/app.js
 eb4f8f17e028b259c4eed11549ffa39bf77ac901d1ecc1a1772d8331875cb51a  dist/index.html
 29cfbbea51f8e98ff94334796b35135e9409d1fe8a2dc5f95518e732c779b865  dist/styles.css
-b91f415ed5cfcd8ab5ffe219ce4d2e9efd6a8f308aec1ac968ec3a5a48dfcf31  scripts/test-task-list-browser.mjs
+1d72f3fac8427e063d92cbe1d98f49f128f2f8785e705319d574df9c7e6379e1  scripts/test-task-list-browser.mjs
 ```

@@ -48,7 +48,7 @@ async function attachFiles(files){
  }}finally{if(epoch===attachmentEpoch){uploading=false;$('#file-input').value='';drawAttachments();controls();}}
 }
 function controls(){ $('#archive-confirm').disabled=archiveSaving||!connected;$('#archive-confirm').textContent=archiveSaving?'Archiving…':'Archive';$('#archive-cancel').disabled=archiveSaving;if(!canWrite()||!connected||loadingTask||starting)closeTaskMenu();picker.update();$('#rename-task').hidden=!canWrite()||!thread;$('#rename-task').disabled=!connected||loadingTask||starting||renameSaving;$('#rename-save').disabled=renameSaving||!connected;$('#rename-save').textContent=renameSaving?'Saving…':'Save name';$('#rename-cancel').disabled=renameSaving;$('#task-name').disabled=renameSaving; $('#mode').disabled=!connected||!!turn||starting||loadingTask;$('#mode-help').textContent=$('#mode').value==='plan'?'Plan the approach before implementation. Applies to your next prompt.':'Work on the task. Applies to your next prompt.'; $('#composer').hidden=!canWrite();$('#new-task').hidden=!canWrite();$('#read-only').hidden=canWrite();$('#identity').textContent=currentUser?`${currentUser.username} · ${canWrite()?'Admin':'Read-only'}`:''; $('#send').disabled=!connected||!!turn||starting||loadingTask||uploading||attachments.some(a=>a.removing);$('#attach').disabled=starting||uploading||loadingTask||attachments.length>=5;$('#new-task').disabled=starting;$('#stop').disabled=loadingTask;$('#stop').hidden=!canWrite()||!turn;$('#new-settings').hidden=!!thread;$('#run-status').textContent=turn?'Codex is working…':permissionLabel;$('#connection').textContent=connected?'App server connected':'Reconnecting…'; }
-function lock(){projects.reset();showTasks();closeArchive();archivedIds.clear();loadingId=null;closeTaskMenu();closeRename();authEpoch++;listEpoch++;listStatus('');resetAttachments();selection++;currentUser=null;taskSettings=null;$('#mode').value='default';thread=null;turn=null;starting=false;loadingTask=false;items.clear();$('#conversation').replaceChildren();$('#tasks').replaceChildren();$('#prompt').value='';notice('');stream?.close();stream=null;$('#login').hidden=false;$('#workspace').hidden=true;connected=false;requests.clear();$('#approvals').replaceChildren();controls()}
+function lock(){projects.reset();showTasks();closeArchive();archivedIds.clear();loadingId=null;closeTaskMenu();closeRename();authEpoch++;listEpoch++;listPending=false;$('#more').disabled=false;listStatus('');resetAttachments();selection++;currentUser=null;taskSettings=null;$('#mode').value='default';thread=null;turn=null;starting=false;loadingTask=false;items.clear();$('#conversation').replaceChildren();$('#tasks').replaceChildren();$('#prompt').value='';notice('');stream?.close();stream=null;$('#login').hidden=false;$('#workspace').hidden=true;connected=false;requests.clear();$('#approvals').replaceChildren();controls()}
 // Provenance comes from app-server records, never from prompts, names or cwd.
 function internalTask(t){
  if(t.originator==='prime_mover')return true;
@@ -67,14 +67,21 @@ function taskName(t){
  if(typeof t?.name==='string'&&t.name.trim())return t.name;
  return (t?.preview||'').trim().split(/\s+/u).filter(Boolean).slice(0,4).join(' ')||'Untitled task';
 }
-let listEpoch=0;
+let listEpoch=0,listPending=false;
 function listStatus(text){$('#task-list-status').textContent=text;}
 async function list(more=false){
+ // Pagination cannot supersede a refresh or reuse a cursor while a page is pending.
+ if(more&&(listPending||!cursor))return;
  const serial=++listEpoch,epoch=authEpoch;
+ listPending=true;$('#more').disabled=true;
  listStatus('Loading tasks…');
  try{
   const b=await rpc('thread/list',{limit:30,sortKey:'updated_at',...(more&&cursor?{cursor}:{})});
   if(serial!==listEpoch||epoch!==authEpoch)return;
+  // Inspect focus at response time so a user who moved elsewhere keeps it.
+  const focused=document.activeElement;
+  const focusId=$('#tasks').contains(focused)?focused.dataset.id:
+   !$('#task-context-menu').hidden&&$('#task-context-menu').contains(focused)?contextTarget?.dataset.id:null;
   closeTaskMenu();if(!more)$('#tasks').replaceChildren();cursor=b.nextCursor;$('#more').hidden=!cursor;
   for(const t of b.data){
    if(archivedIds.has(t.id)||internalTask(t))continue;
@@ -85,10 +92,13 @@ async function list(more=false){
    btn.classList.toggle('selected',thread?.id===t.id);btn.append(el('small',new Date(t.updatedAt*1000).toLocaleDateString()));
    btn.onclick=()=>openTask(t.id).catch(e=>notice(e.message));$('#tasks').append(btn);
   }
+  if(focusId)([...$('#tasks').children].find(button=>button.dataset.id===focusId)||$('#tasks button')||$('#refresh')).focus();
   listStatus($('#tasks').children.length?'':cursor?'No tasks on this page. Load more to continue.':'No tasks yet.');
  }catch(error){
   if(serial===listEpoch&&epoch===authEpoch)listStatus('Could not load tasks. Try Refresh.');
   throw error;
+ }finally{
+  if(serial===listEpoch&&epoch===authEpoch){listPending=false;$('#more').disabled=false;}
  }
 }
 function title(){ $('#task-title').textContent=thread?taskName(thread):'Your next move.';$('#task-meta').textContent=thread?thread.cwd:'Choose a task or start something new.';for(const b of $('#tasks').children)b.classList.toggle('selected',b.dataset.id===thread?.id);controls() }

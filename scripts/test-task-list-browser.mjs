@@ -9,14 +9,14 @@ import assert from 'node:assert/strict';
 const root=new URL('..',import.meta.url).pathname,dir=await mkdtemp(join(tmpdir(),'doom-link-browser-'));
 let chrome,bridge,cdp,wss,daemon;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const requests=[];let created;let upstream,rejectTurn=false,rejectResume=false,rejectRename=false,listRows,holdList=false,rejectList=false;const held=[];
+const requests=[];let created;let upstream,rejectTurn=false,rejectResume=false,rejectRename=false,listRows,listCursor=null,holdList=false,rejectList=false;const held=[];
 try{
  const thread={id:'fixture-task',preview:'Browser fixture',cwd:'/tmp',turns:[{id:'fixture-turn',status:'completed',items:[{id:'message',type:'agentMessage',text:'Fixture task content [Example](https://example.com/path)'}]}]};
  const other={...thread,id:'other-task',preview:'Review diagnostic test ordinary user work',source:'cli'};
  const internal=['implementation','code-review','e2e-review','diagnostic','probe'].map(id=>({...thread,id,originator:'prime_mover',preview:'Synthetic internal fixture'}));
  listRows=[thread,other,...internal];
  daemon=http.createServer();wss=new WebSocketServer({server:daemon});const socket=join(dir,'app.sock');await new Promise(r=>daemon.listen(socket,r));
- wss.on('connection',ws=>{upstream=ws;ws.on('message',raw=>{const m=JSON.parse(raw);requests.push(m);if(m.method==='thread/list'&&holdList){held.push([ws,m.id]);return;}if(m.method==='thread/list'&&rejectList){ws.send(JSON.stringify({id:m.id,error:{code:-1,message:'Fixture unavailable'}}));return;}if(m.method==='thread/name/set'){if(rejectRename){ws.send(JSON.stringify({id:m.id,error:{code:-1,message:'Rename unavailable'}}));return;}(m.params.threadId==='other-task'?other:thread).name=m.params.name;}if(m.method==='thread/resume'&&rejectResume){ws.send(JSON.stringify({id:m.id,error:{code:-32602,message:'Fixture resume failed'}}));return;}if(m.method==='turn/start'&&rejectTurn){ws.send(JSON.stringify({id:m.id,error:{code:-32602,message:'Fixture mode unavailable'}}));return;}if(m.method&&m.id!==undefined){let result={};if(m.method==='thread/list')result={data:listRows.map(t=>({...t,updatedAt:1})),nextCursor:null};if(m.method==='model/list')result={data:[]};if(['thread/read','thread/resume','thread/start'].includes(m.method))result={thread:m.params?.threadId==='other-task'?other:thread,model:'fixture-model',reasoningEffort:'high'};if(m.method==='thread/start'){created={id:'created-task',preview:'',cwd:'/tmp',turns:[]};listRows.push(created);result={thread:created,model:'fixture-model',reasoningEffort:'high'};}if(m.method==='thread/read'&&m.params.threadId===created?.id)result={thread:created};if(m.method==='turn/start'){if(m.params.threadId===created?.id)created.preview=m.params.input[0].text;result={turn:{id:'new-turn',status:'inProgress'}};}ws.send(JSON.stringify({id:m.id,result}));}})});
+ wss.on('connection',ws=>{upstream=ws;ws.on('message',raw=>{const m=JSON.parse(raw);requests.push(m);if(m.method==='thread/list'&&holdList){held.push([ws,m.id]);return;}if(m.method==='thread/list'&&rejectList){ws.send(JSON.stringify({id:m.id,error:{code:-1,message:'Fixture unavailable'}}));return;}if(m.method==='thread/name/set'){if(rejectRename){ws.send(JSON.stringify({id:m.id,error:{code:-1,message:'Rename unavailable'}}));return;}(m.params.threadId==='other-task'?other:thread).name=m.params.name;}if(m.method==='thread/resume'&&rejectResume){ws.send(JSON.stringify({id:m.id,error:{code:-32602,message:'Fixture resume failed'}}));return;}if(m.method==='turn/start'&&rejectTurn){ws.send(JSON.stringify({id:m.id,error:{code:-32602,message:'Fixture mode unavailable'}}));return;}if(m.method&&m.id!==undefined){let result={};if(m.method==='thread/list')result={data:listRows.map(t=>({...t,updatedAt:1})),nextCursor:listCursor};if(m.method==='model/list')result={data:[]};if(['thread/read','thread/resume','thread/start'].includes(m.method))result={thread:m.params?.threadId==='other-task'?other:thread,model:'fixture-model',reasoningEffort:'high'};if(m.method==='thread/start'){created={id:'created-task',preview:'',cwd:'/tmp',turns:[]};listRows.push(created);result={thread:created,model:'fixture-model',reasoningEffort:'high'};}if(m.method==='thread/read'&&m.params.threadId===created?.id)result={thread:created};if(m.method==='turn/start'){if(m.params.threadId===created?.id)created.preview=m.params.input[0].text;result={turn:{id:'new-turn',status:'inProgress'}};}ws.send(JSON.stringify({id:m.id,result}));}})});
  const probe=http.createServer();await new Promise(r=>probe.listen(0,'127.0.0.1',r));const port=probe.address().port;await new Promise(r=>probe.close(r));
  await writeFile(join(dir,'config.json'),JSON.stringify({bind:['127.0.0.1'],port,socket}));
  await writeFile(join(dir,'users.json'),JSON.stringify({version:1,users:await Promise.all(['admin','user'].map(role=>hashUser({username:role,password:'browser-fixture',role})))}));
@@ -35,10 +35,11 @@ try{
  const login=async role=>{await js(`document.querySelector('#username').value=${JSON.stringify(role)};document.querySelector('#password').value='browser-fixture';document.querySelector('#login-form').requestSubmit()`);await wait('!document.querySelector("#workspace").hidden && !!document.querySelector("#tasks button")');};
 
  const evidence=root+'docs/ui-evidence/task-list/';await mkdir(evidence,{recursive:true});
- const capture=async state=>{
+ const capture=async (state,prepare=async()=>{})=>{
   for(const [label,width,height]of [['desktop',1440,900],['mobile',390,844]]){
    await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:label==='mobile'});
    await js('document.fonts.ready');
+   await prepare();
    assert.equal(await js('document.documentElement.scrollWidth<=innerWidth'),true,'no horizontal overflow');
    const shot=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
    await writeFile(evidence+label+'-'+state+'.png',Buffer.from(shot.data,'base64'));
@@ -53,6 +54,56 @@ try{
  await js('document.querySelector("#tasks button").click()');await wait('document.querySelector("#conversation").textContent.includes("Fixture task content")');
  await js('document.querySelector("#prompt").value="Keep my unsent draft"');
  await capture('tasks');
+ // Review correction 001: a pending replacement cannot be cancelled by Load more.
+ const releaseList=(data,nextCursor=null)=>{holdList=false;for(const[ws,id]of held.splice(0))ws.send(JSON.stringify({id,result:{data:data.map(t=>({...t,updatedAt:1})),nextCursor}}));};
+ const waitHeld=async()=>{for(let i=0;i<100;i++){if(held.length)return;await sleep(20)}throw Error('Expected held list request')};
+ listCursor='old-page';await refresh();holdList=true;
+ await js('document.querySelector("#refresh").click()');await waitHeld();
+ const beforePagination=requests.filter(m=>m.method==='thread/list').length;
+ assert.equal(await js('document.querySelector("#more").disabled'),true);
+ await js('document.querySelector("#more").click()');
+ await capture('pagination-loading');
+ assert.equal(requests.filter(m=>m.method==='thread/list').length,beforePagination,'disabled pagination sends no request');
+ const fresh={...thread,id:'fresh-task',preview:'Fresh user task'};
+ releaseList([fresh,...internal],'fresh-page');await wait('!!document.querySelector("[data-id=fresh-task]")');
+ assert.deepEqual(await names(),['Fresh user task']);
+ listRows=[thread];listCursor=null;await js('document.querySelector("#more").click()');
+ await wait('document.querySelectorAll("#tasks button").length===2');
+ assert.equal(requests.findLast(m=>m.method==='thread/list').params.cursor,'fresh-page');
+ assert.deepEqual(await names(),['Fresh user task','Browser fixture']);
+ listRows=[thread,other,...internal];await refresh();
+ // Review correction 002: actual keyboard menus and streamed refreshes at both sizes.
+ const key=async(key,code,modifiers=0)=>{for(const type of ['keyDown','keyUp'])await call('Input.dispatchKeyEvent',{type,key,windowsVirtualKeyCode:code,modifiers});};
+ const focusTask=async()=>{await js('document.querySelector("#tasks button").focus()');await key('Shift',16,8);await js('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');};
+ const openKeyboardMenu=async()=>{await focusTask();await key('F10',121,8);await wait('!document.querySelector("#task-context-menu").hidden');};
+ const internalStart=()=>upstream.send(JSON.stringify({method:'thread/started',params:{thread:internal[0]}}));
+ await capture('keyboard-menu',openKeyboardMenu);
+ await capture('focus-restored',async()=>{
+  for(const menu of [false,true]){
+   if(menu)await openKeyboardMenu();else await focusTask();
+   holdList=true;internalStart();await waitHeld();releaseList(listRows);
+   await wait('!document.querySelector("#task-list-status").textContent.includes("Loading")');
+   assert.equal(await js('document.activeElement.dataset.id'),'fixture-task');
+   assert.equal(await js('document.querySelector("#task-context-menu").hidden'),true);
+   assert.equal(await js('document.activeElement.matches(":focus-visible")'),true);
+  }
+ });
+ await capture('focus-fallback',async()=>{
+  listRows=[thread,other,...internal];await refresh();await openKeyboardMenu();
+  holdList=true;internalStart();await waitHeld();releaseList([other,...internal]);
+  await wait('document.querySelectorAll("#tasks button").length===1');
+  assert.equal(await js('document.activeElement.dataset.id'),'other-task');
+ });
+ for(const menu of [false,true]){
+  listRows=[thread,other,...internal];await refresh();
+  if(menu)await openKeyboardMenu();else await focusTask();
+  holdList=true;internalStart();await waitHeld();await js('document.querySelector("#prompt").focus()');releaseList(listRows);
+  await wait('!document.querySelector("#task-list-status").textContent.includes("Loading")');
+  assert.equal(await js('document.activeElement.id'),'prompt');
+ }
+ assert.equal(await draft(),'Keep my unsent draft');
+ assert.match(await js('document.querySelector("#conversation").textContent'),/Fixture task content/);
+
  const streamed={...thread,id:'streamed',name:'A long custom user title stays intact',source:'appServer'};listRows.push(streamed);
  upstream.send(JSON.stringify({method:'thread/started',params:{thread:streamed}}));
  await wait('document.querySelectorAll("#tasks button").length===3');assert.ok((await names()).includes(streamed.name));

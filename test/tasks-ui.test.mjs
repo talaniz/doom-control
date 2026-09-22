@@ -84,3 +84,85 @@ test('late refresh responses cannot replace newer results; failures preserve cur
  assert.equal(h.doc.querySelector('#task-list-status').textContent,'Could not load tasks. Try Refresh.');
  }finally{h.close()}
 });
+
+const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+const ids=h=>[...h.doc.querySelectorAll('#tasks button')].map(button=>button.dataset.id);
+function retainDraft(h){
+ h.w.testing.renderThread({...row('selected'),turns:[{items:[{id:'history',type:'agentMessage',text:'Retained conversation'}]}]});
+ h.doc.querySelector('#prompt').value='Retained draft';
+}
+function assertDraft(h){
+ assert.equal(h.doc.querySelector('#prompt').value,'Retained draft');
+ assert.match(h.doc.querySelector('#conversation').textContent,/Retained conversation/);
+}
+test('pagination cannot supersede a pending first-page refresh or use its old cursor',async()=>{
+ const h=await setup(()=>({data:[row('old')],nextCursor:'old-page'}));
+ try{
+ retainDraft(h);
+ const calls=[];let resolve;
+ h.setRows(params=>{calls.push(params);return new Promise(r=>{resolve=r})});
+ const refresh=h.w.testing.list();await tick();
+ const pagination=h.w.testing.list(true);await tick();
+ assert.equal(calls.length,1,'Load more must not send the old cursor while refresh is pending');
+ assert.equal(h.doc.querySelector('#more').disabled,true);
+ resolve({data:[row('fresh'),row('internal',{originator:'prime_mover'})],nextCursor:'fresh-page'});
+ await Promise.all([refresh,pagination]);
+ assert.deepEqual(ids(h),['fresh']);assertDraft(h);
+ assert.equal(h.doc.querySelector('#more').disabled,false);
+ h.setRows(params=>{assert.equal(params.cursor,'fresh-page');return {data:[row('page2')],nextCursor:null}});
+ await h.w.testing.list(true);
+ assert.deepEqual(ids(h),['fresh','page2']);assert.equal(h.doc.querySelector('#more').hidden,true);assertDraft(h);
+ }finally{h.close()}
+});
+for(const order of ['page-first','refresh-first'])test(`obsolete pagination cannot alter replacement results: ${order}`,async()=>{
+ const h=await setup(()=>({data:[row('old')],nextCursor:'old-page'}));
+ try{
+ retainDraft(h);const pending=[];
+ h.setRows(params=>new Promise(resolve=>pending.push({params,resolve})));
+ const page=h.w.testing.list(true);await tick();const refresh=h.w.testing.list();await tick();
+ assert.equal(pending[0].params.cursor,'old-page');assert.equal(pending[1].params.cursor,undefined);
+ const finishPage=()=>pending[0].resolve({data:[row('obsolete')],nextCursor:null});
+ const finishRefresh=()=>pending[1].resolve({data:[row('fresh'),row('hidden',{originator:'prime_mover'})],nextCursor:'fresh-page'});
+ if(order==='page-first'){finishPage();await page;assert.equal(h.doc.querySelector('#more').disabled,true);finishRefresh();}else{finishRefresh();await refresh;finishPage();}
+ await Promise.all([page,refresh]);assert.deepEqual(ids(h),['fresh']);assert.equal(h.doc.querySelector('#more').hidden,false);assertDraft(h);
+ h.setRows(params=>{assert.equal(params.cursor,'fresh-page');return {data:[row('fresh-page')],nextCursor:null}});
+ await h.w.testing.list(true);assert.deepEqual(ids(h),['fresh','fresh-page']);
+ }finally{h.close()}
+});
+for(const menu of [false,true])for(const removed of [false,true])test(`background refresh preserves deliberate focus: menu=${menu}, removed=${removed}`,async()=>{
+ const h=await setup([row('target'),row('survivor')]);
+ try{
+ retainDraft(h);const target=h.doc.querySelector('[data-id="target"]');target.focus();
+ if(menu)target.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ContextMenu',bubbles:true,cancelable:true}));
+ assert.equal(h.doc.activeElement,menu?h.doc.querySelector('#context-rename'):target);
+ h.setRows(removed?[row('survivor')]:[row('target'),row('survivor')]);
+ h.w.testing.onEvent({method:'thread/started',params:{thread:row('internal',{originator:'prime_mover'})}});await tick();
+ assert.equal(h.doc.activeElement,h.doc.querySelector(`[data-id="${removed?'survivor':'target'}"]`));
+ assert.equal(h.doc.querySelector('#task-context-menu').hidden,true);assertDraft(h);
+ }finally{h.close()}
+});
+for(const menu of [false,true])test(`delayed background refresh does not steal focus from composer: menu=${menu}`,async()=>{
+ const h=await setup([row('target')]);
+ try{
+ retainDraft(h);const target=h.doc.querySelector('#tasks button');target.focus();
+ if(menu)target.dispatchEvent(new h.w.KeyboardEvent('keydown',{key:'ContextMenu',bubbles:true,cancelable:true}));
+ let resolve;h.setRows(()=>new Promise(r=>{resolve=r}));
+ h.w.testing.onEvent({method:'thread/started',params:{thread:row('internal',{originator:'prime_mover'})}});await tick();
+ h.doc.querySelector('#prompt').focus();resolve({data:[row('target')],nextCursor:null});await tick();
+ assert.equal(h.doc.activeElement,h.doc.querySelector('#prompt'));assertDraft(h);
+ }finally{h.close()}
+});
+test('removing the final focused task provides a visible refresh fallback',async()=>{
+ const h=await setup([row('target')]);
+ try{h.doc.querySelector('#tasks button').focus();await h.refresh([]);assert.equal(h.doc.activeElement,h.doc.querySelector('#refresh'));}finally{h.close()}
+});
+
+test('failed refresh re-enables pagination of the retained list',async()=>{
+ const h=await setup(()=>({data:[row('retained')],nextCursor:'retained-page'}));
+ try{
+ h.setRows(()=>{throw Error('Fixture failure')});await assert.rejects(h.w.testing.list());
+ assert.equal(h.doc.querySelector('#more').disabled,false);assert.deepEqual(ids(h),['retained']);
+ h.setRows(params=>{assert.equal(params.cursor,'retained-page');return {data:[row('page2')],nextCursor:null}});
+ await h.w.testing.list(true);assert.deepEqual(ids(h),['retained','page2']);
+ }finally{h.close()}
+});

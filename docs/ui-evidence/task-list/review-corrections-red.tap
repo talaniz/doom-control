@@ -1,0 +1,262 @@
+TAP version 13
+# Subtest: initial and refreshed lists filter explicit provenance only, preserving selected history and draft
+ok 1 - initial and refreshed lists filter explicit provenance only, preserving selected history and draft
+  ---
+  duration_ms: 1110.582133
+  type: 'test'
+  ...
+# Subtest: fallback titles have four words, explicit names and streamed renames remain intact
+ok 2 - fallback titles have four words, explicit names and streamed renames remain intact
+  ---
+  duration_ms: 253.371471
+  type: 'test'
+  ...
+# Subtest: fallback boundaries include empty, one word, Unicode whitespace, and custom names identical to prompts
+ok 3 - fallback boundaries include empty, one word, Unicode whitespace, and custom names identical to prompts
+  ---
+  duration_ms: 143.772915
+  type: 'test'
+  ...
+# Subtest: filtered pages keep Load more available and append visible results without losing drafts
+ok 4 - filtered pages keep Load more available and append visible results without losing drafts
+  ---
+  duration_ms: 120.886065
+  type: 'test'
+  ...
+# Subtest: late refresh responses cannot replace newer results; failures preserve current list
+ok 5 - late refresh responses cannot replace newer results; failures preserve current list
+  ---
+  duration_ms: 171.405034
+  type: 'test'
+  ...
+# Subtest: pagination cannot supersede a pending first-page refresh or use its old cursor
+not ok 6 - pagination cannot supersede a pending first-page refresh or use its old cursor
+  ---
+  duration_ms: 137.460563
+  type: 'test'
+  location: '/media/talaniz/postgresdata/codex-work/production/worktrees/2123eecf-7030-404e-9e60-b9e1ee5470d9/test/tasks-ui.test.mjs:98:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Load more must not send the old cursor while refresh is pending
+    
+    2 !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: 2
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///media/talaniz/postgresdata/codex-work/production/worktrees/2123eecf-7030-404e-9e60-b9e1ee5470d9/test/tasks-ui.test.mjs:106:9)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: obsolete pagination cannot alter replacement results: page-first
+ok 7 - obsolete pagination cannot alter replacement results: page-first
+  ---
+  duration_ms: 188.356474
+  type: 'test'
+  ...
+# Subtest: obsolete pagination cannot alter replacement results: refresh-first
+ok 8 - obsolete pagination cannot alter replacement results: refresh-first
+  ---
+  duration_ms: 184.746885
+  type: 'test'
+  ...
+# Subtest: background refresh preserves deliberate focus: menu=false, removed=false
+not ok 9 - background refresh preserves deliberate focus: menu=false, removed=false
+  ---
+  duration_ms: 261.705572
+  type: 'test'
+  location: '/media/talaniz/postgresdata/codex-work/production/worktrees/2123eecf-7030-404e-9e60-b9e1ee5470d9/test/tasks-ui.test.mjs:132:66'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected "actual" to be reference-equal to "expected":
+    + actual - expected
+    
+    + HTMLBodyElement {}
+    - HTMLButtonElement {
+    -   [Symbol(SameObject caches)]: [Object: null prototype] {
+    -     classList: DOMTokenList {},
+    -     dataset: DOMStringMap {}
+    -   },
+    -   taskSummary: {
+    -     id: 'target',
+    -     preview: 'Review diagnostic test ordinary user work',
+    -     updatedAt: 1
+    -   }
+    - }
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    taskSummary:
+      id: 'target'
+      preview: 'Review diagnostic test ordinary user work'
+      updatedAt: 1
+  actual:
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///media/talaniz/postgresdata/codex-work/production/worktrees/2123eecf-7030-404e-9e60-b9e1ee5470d9/test/tasks-ui.test.mjs:140:9)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: background refresh preserves deliberate focus: menu=false, removed=true
+not ok 10 - background refresh preserves deliberate focus: menu=false, removed=true
+  ---
+  duration_ms: 292.605285
+  type: 'test'
+  location: '/media/talaniz/postgresdata/codex-work/production/worktrees/2123eecf-7030-404e-9e60-b9e1ee5470d9/test/tasks-ui.test.mjs:132:66'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected "actual" to be reference-equal to "expected":
+    + actual - expected
+    
+    + HTMLBodyElement {}
+    - HTMLButtonElement {
+    -   [Symbol(SameObject caches)]: [Object: null prototype] {
+    -     classList: DOMTokenList {},
+    -     dataset: DOMStringMap {}
+    -   },
+    -   taskSummary: {
+    -     id: 'survivor',
+    -     preview: 'Review diagnostic test ordinary user work',
+    -     updatedAt: 1
+    -   }
+    - }
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    taskSummary:
+      id: 'survivor'
+      preview: 'Review diagnostic test ordinary user work'
+      updatedAt: 1
+  actual:
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///media/talaniz/postgresdata/codex-work/production/worktrees/2123eecf-7030-404e-9e60-b9e1ee5470d9/test/tasks-ui.test.mjs:140:9)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: background refresh preserves deliberate focus: menu=true, removed=false
+not ok 11 - background refresh preserves deliberate focus: menu=true, removed=false
+  ---
+  duration_ms: 192.743672
+  type: 'test'
+  location: '/media/talaniz/postgresdata/codex-work/production/worktrees/2123eecf-7030-404e-9e60-b9e1ee5470d9/test/tasks-ui.test.mjs:132:66'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected "actual" to be reference-equal to "expected":
+    + actual - expected
+    
+    + HTMLButtonElement {}
+    - HTMLButtonElement {
+    -   [Symbol(SameObject caches)]: [Object: null prototype] {
+    -     classList: DOMTokenList {},
+    -     dataset: DOMStringMap {}
+    -   },
+    -   taskSummary: {
+    -     id: 'target',
+    -     preview: 'Review diagnostic test ordinary user work',
+    -     updatedAt: 1
+    -   }
+    - }
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    taskSummary:
+      id: 'target'
+      preview: 'Review diagnostic test ordinary user work'
+      updatedAt: 1
+  actual:
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///media/talaniz/postgresdata/codex-work/production/worktrees/2123eecf-7030-404e-9e60-b9e1ee5470d9/test/tasks-ui.test.mjs:140:9)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: background refresh preserves deliberate focus: menu=true, removed=true
+not ok 12 - background refresh preserves deliberate focus: menu=true, removed=true
+  ---
+  duration_ms: 202.306137
+  type: 'test'
+  location: '/media/talaniz/postgresdata/codex-work/production/worktrees/2123eecf-7030-404e-9e60-b9e1ee5470d9/test/tasks-ui.test.mjs:132:66'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected "actual" to be reference-equal to "expected":
+    + actual - expected
+    
+    + HTMLButtonElement {}
+    - HTMLButtonElement {
+    -   [Symbol(SameObject caches)]: [Object: null prototype] {
+    -     classList: DOMTokenList {},
+    -     dataset: DOMStringMap {}
+    -   },
+    -   taskSummary: {
+    -     id: 'survivor',
+    -     preview: 'Review diagnostic test ordinary user work',
+    -     updatedAt: 1
+    -   }
+    - }
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    taskSummary:
+      id: 'survivor'
+      preview: 'Review diagnostic test ordinary user work'
+      updatedAt: 1
+  actual:
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///media/talaniz/postgresdata/codex-work/production/worktrees/2123eecf-7030-404e-9e60-b9e1ee5470d9/test/tasks-ui.test.mjs:140:9)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: delayed background refresh does not steal focus from composer: menu=false
+ok 13 - delayed background refresh does not steal focus from composer: menu=false
+  ---
+  duration_ms: 147.124102
+  type: 'test'
+  ...
+# Subtest: delayed background refresh does not steal focus from composer: menu=true
+ok 14 - delayed background refresh does not steal focus from composer: menu=true
+  ---
+  duration_ms: 186.981929
+  type: 'test'
+  ...
+# Subtest: removing the final focused task provides a visible refresh fallback
+not ok 15 - removing the final focused task provides a visible refresh fallback
+  ---
+  duration_ms: 165.482126
+  type: 'test'
+  location: '/media/talaniz/postgresdata/codex-work/production/worktrees/2123eecf-7030-404e-9e60-b9e1ee5470d9/test/tasks-ui.test.mjs:155:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected "actual" to be reference-equal to "expected":
+    + actual - expected
+    
+    + HTMLBodyElement {}
+    - HTMLButtonElement {}
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///media/talaniz/postgresdata/codex-work/production/worktrees/2123eecf-7030-404e-9e60-b9e1ee5470d9/test/tasks-ui.test.mjs:157:78)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..15
+# tests 15
+# suites 0
+# pass 9
+# fail 6
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3794.556401
