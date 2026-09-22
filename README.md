@@ -250,3 +250,16 @@ validation and role enforcement. No production deployment is performed by tests.
 Use the feature, bug report, or documentation form when opening an issue. See
 [issue reporting](docs/issue-reporting.md) for the required fields and separate
 Prime Mover authorization step.
+
+### Task visibility and fallback titles
+
+The normal task sidebar omits threads with explicit Prime Mover or subagent
+provenance. Unknown origins stay visible; task wording does not affect visibility.
+This does not archive threads or change execution, requests, or project evidence.
+Selected conversations and unsent text remain intact when the list refreshes.
+
+When no stored name is available, task titles use at most four words from the
+initial prompt preview. Stored names are preserved because the app-server API
+does not distinguish generated titles from custom names. See the
+[issue 18 verification and UI evidence](docs/ui-evidence/task-list/index.md)
+for provenance rules, API limitations, tests, and synthetic screenshots.
