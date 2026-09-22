@@ -47,8 +47,8 @@ async function attachFiles(files){
   }catch(error){if(epoch===attachmentEpoch){attachments=attachments.filter(a=>a!==entry);notice(error.message);}break;}
  }}finally{if(epoch===attachmentEpoch){uploading=false;$('#file-input').value='';drawAttachments();controls();}}
 }
-function controls(){ $('#archive-confirm').disabled=archiveSaving||!connected;$('#archive-confirm').textContent=archiveSaving?'Archiving…':'Archive';$('#archive-cancel').disabled=archiveSaving;if(!canWrite()||!connected||loadingTask||starting)closeTaskMenu();picker.update();$('#rename-task').hidden=!canWrite()||!thread;$('#rename-task').disabled=!connected||loadingTask||starting||renameSaving;$('#rename-save').disabled=renameSaving||!connected;$('#rename-save').textContent=renameSaving?'Saving…':'Save name';$('#rename-cancel').disabled=renameSaving;$('#task-name').disabled=renameSaving; $('#mode').disabled=!connected||!!turn||starting||loadingTask;$('#mode-help').textContent=$('#mode').value==='plan'?'Plan the approach before implementation. Applies to your next prompt.':'Work on the task. Applies to your next prompt.'; $('#composer').hidden=!canWrite();$('#new-task').hidden=!canWrite();$('#read-only').hidden=canWrite();$('#identity').textContent=currentUser?`${currentUser.username} · ${canWrite()?'Admin':'Read-only'}`:''; $('#send').disabled=!connected||!!turn||starting||loadingTask||uploading||attachments.some(a=>a.removing);$('#attach').disabled=starting||uploading||loadingTask||attachments.length>=5;$('#new-task').disabled=starting;$('#stop').disabled=loadingTask;$('#stop').hidden=!canWrite()||!turn;$('#new-settings').hidden=!!thread;$('#run-status').textContent=turn?'Codex is working…':permissionLabel;$('#connection').textContent=connected?'App server connected':'Reconnecting…'; }
-function lock(){projects.reset();showTasks();closeArchive();archivedIds.clear();loadingId=null;closeTaskMenu();closeRename();authEpoch++;listEpoch++;listPending=false;$('#more').disabled=false;listStatus('');resetAttachments();selection++;currentUser=null;taskSettings=null;$('#mode').value='default';thread=null;turn=null;starting=false;loadingTask=false;items.clear();$('#conversation').replaceChildren();$('#tasks').replaceChildren();$('#prompt').value='';notice('');stream?.close();stream=null;$('#login').hidden=false;$('#workspace').hidden=true;connected=false;requests.clear();$('#approvals').replaceChildren();controls()}
+function controls(){ $('#task-options').hidden=!canWrite()||!thread;$('#task-options').disabled=!connected||loadingTask||starting||renameSaving||archiveSaving;$('#archive-confirm').disabled=archiveSaving||!connected;$('#archive-confirm').textContent=archiveSaving?'Archiving…':'Archive';$('#archive-cancel').disabled=archiveSaving;if(!canWrite()||!connected||loadingTask||starting)closeTaskMenu();picker.update();$('#rename-task').hidden=!canWrite()||!thread;$('#rename-task').disabled=!connected||loadingTask||starting||renameSaving;$('#rename-save').disabled=renameSaving||!connected;$('#rename-save').textContent=renameSaving?'Saving…':'Save name';$('#rename-cancel').disabled=renameSaving;$('#task-name').disabled=renameSaving; $('#mode').disabled=!connected||!!turn||starting||loadingTask;$('#mode-help').textContent=$('#mode').value==='plan'?'Plan the approach before implementation. Applies to your next prompt.':'Work on the task. Applies to your next prompt.'; $('#composer').hidden=!canWrite();$('#new-task').hidden=!canWrite();$('#read-only').hidden=canWrite();$('#identity').textContent=currentUser?`${currentUser.username} · ${canWrite()?'Admin':'Read-only'}`:''; $('#send').disabled=!connected||!!turn||starting||loadingTask||uploading||attachments.some(a=>a.removing);$('#attach').disabled=starting||uploading||loadingTask||attachments.length>=5;$('#new-task').disabled=starting;$('#stop').disabled=loadingTask;$('#stop').hidden=!canWrite()||!turn;$('#new-settings').hidden=!!thread;$('#run-status').textContent=turn?'Codex is working…':permissionLabel;$('#connection').textContent=connected?'App server connected':'Reconnecting…'; }
+function lock(){closeNavigation(false);projects.reset();showTasks();closeArchive();archivedIds.clear();loadingId=null;closeTaskMenu();closeRename();authEpoch++;listEpoch++;listPending=false;$('#more').disabled=false;listStatus('');resetAttachments();selection++;currentUser=null;taskSettings=null;$('#mode').value='default';thread=null;turn=null;starting=false;loadingTask=false;items.clear();$('#conversation').replaceChildren();$('#tasks').replaceChildren();$('#prompt').value='';notice('');stream?.close();stream=null;$('#login').hidden=false;$('#workspace').hidden=true;connected=false;requests.clear();$('#approvals').replaceChildren();controls()}
 // Provenance comes from app-server records, never from prompts, names or cwd.
 function internalTask(t){
  if(t.originator==='prime_mover')return true;
@@ -108,20 +108,20 @@ function setTaskName(id,name){
 }
 function closeTaskMenu(restoreFocus=false){
  const trigger=contextTarget;contextTarget=null;$('#task-context-menu').hidden=true;
- if(restoreFocus&&trigger?.isConnected)trigger.focus();
+ if(restoreFocus&&trigger?.isConnected)focusTaskControl(trigger);
 }
 function openTaskMenu(event,button){
  if(!canWrite()||!connected||loadingTask||starting||renameSaving||archiveSaving)return;
  event.preventDefault();closeTaskMenu();contextTarget=button;
  const menu=$('#task-context-menu'),rect=button.getBoundingClientRect();
- const keyboard=event.type==='keydown';menu.hidden=false;
+ const keyboard=event.type==='keydown'||event.type==='click';closeNavigation(false);menu.hidden=false;
  menu.style.left=Math.max(0,Math.min(keyboard?rect.left:event.clientX,innerWidth-menu.offsetWidth))+'px';
  menu.style.top=Math.max(0,Math.min(keyboard?rect.bottom:event.clientY,innerHeight-menu.offsetHeight))+'px';
  $('#context-rename').focus();
 }
 function closeRename(){
  renameEpoch++;renameId=null;renameSaving=false;$('#rename-dialog').close();
- if(renameTrigger?.isConnected)renameTrigger.focus();renameTrigger=null;
+ if(renameTrigger?.isConnected)focusTaskControl(renameTrigger);renameTrigger=null;
 }
 function openRename(target=thread,trigger=$('#rename-task')){
  if(!canWrite()||!target||!connected||loadingTask||starting||renameSaving||archiveSaving)return;
@@ -140,7 +140,7 @@ async function saveRename(){
 function closeArchive(){
  archiveEpoch++;archiveId=null;archiveSaving=false;$('#archive-dialog').close();
  const target=archiveTrigger?.isConnected?archiveTrigger:$('#tasks button')||$('#new-task');
- if(!target.hidden)target.focus();archiveTrigger=null;
+ if(!target.hidden)focusTaskControl(target);archiveTrigger=null;
 }
 function openArchive(target,trigger){
  if(!canWrite()||!target||!connected||loadingTask||starting||archiveSaving)return;
@@ -183,7 +183,7 @@ async function openTask(id){
   permissionLabel='Permissions: '+(b.sandbox?.type||'server policy')+' · Approve for me';
   if(thread?.id!==id){picker.reset();$('#mode').value='default';}
   taskSettings={model:b.model,reasoning_effort:b.reasoningEffort??null,developer_instructions:null};
-  renderThread(b.thread);
+  renderThread(b.thread);if(narrowLayout())$('#task-title').focus({preventScroll:true});
  }finally{if(serial===selection){loadingId=null;loadingTask=false;controls()}}
 }
 function newTask(){if(!canWrite()||starting)return;showTasks();resetTask();}
@@ -236,6 +236,7 @@ async function loadModels(){
 async function enter(){
  const status=await api('status');currentUser=status.user;
  $('#login').hidden=true;$('#workspace').hidden=false;connected=status.ready;
+ if(!thread&&!$('#conversation').children.length)$('#conversation').append(el('div','Choose a task from navigation, or write a prompt to start.','empty'));
  for(const r of status.pending)requests.set(String(r.id),r);
  drawRequests();controls();stream?.close();stream=new EventSource('/api/events');
  const epoch=authEpoch;
@@ -243,9 +244,50 @@ async function enter(){
  stream.onerror=()=>{if(epoch!==authEpoch)return;connected=false;controls();api('status').catch(()=>{})};
  if(connected)await Promise.all([list(),loadModels()]);
 }
+const navigationQuery=window.matchMedia?.('(max-width: 1023px)');
+function narrowLayout(){return navigationQuery?.matches??false;}
+function focusTaskControl(target){
+ if(narrowLayout()&&$('#sidebar').contains(target)&&!$('#navigation-dialog').open)$('#navigation-toggle').focus();
+ else target.focus();
+}
+function closeNavigation(restoreFocus=true){
+ const dialog=$('#navigation-dialog'),wasOpen=dialog.open;
+ if(wasOpen)dialog.close();
+ if($('#sidebar').parentElement!==$('#workspace'))$('#workspace').insertBefore($('#sidebar'),$('#task-view'));
+ $('#navigation-toggle').setAttribute('aria-expanded','false');
+ if(wasOpen&&restoreFocus&&narrowLayout())$('#navigation-toggle').focus();
+}
+function openNavigation(){
+ if(!narrowLayout()||!currentUser)return;
+ closeTaskMenu();$('#navigation-dialog').append($('#sidebar'));$('#navigation-dialog').showModal();
+ $('#navigation-toggle').setAttribute('aria-expanded','true');$('#navigation-close').focus();
+}
+function updateViewport(){
+ // Ignore pinch zoom: resizing the layout to a zoomed visual viewport would
+ // fight the user's magnification. Keyboard changes at normal zoom do resize it.
+ const viewport=window.visualViewport;
+ if(!viewport||Math.abs(viewport.scale-1)<0.01){document.documentElement.style.setProperty('--app-height',(viewport?.height||window.innerHeight)+'px');document.documentElement.style.setProperty('--viewport-top',(viewport?.offsetTop||0)+'px');}
+}
+$('#navigation-toggle').onclick=openNavigation;
+$('#navigation-close').onclick=()=>closeNavigation();
+$('#navigation-dialog').onkeydown=e=>{
+ if(e.key!=='Tab')return;
+ const controls=[...$('#navigation-dialog').querySelectorAll('button,a[href],input,select,textarea,[tabindex]')].filter(n=>!n.disabled&&n.tabIndex>=0&&n.getClientRects().length);
+ const first=controls[0],last=controls.at(-1);
+ if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}
+ else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}
+};
+$('#navigation-dialog').oncancel=e=>{e.preventDefault();closeNavigation();};
+$('#navigation-dialog').onclose=()=>closeNavigation(false);
+$('#navigation-dialog').onclick=e=>{if(e.target===$('#navigation-dialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeNavigation();}};
+navigationQuery?.addEventListener('change',()=>{const wasOpen=$('#navigation-dialog').open;closeNavigation(false);closeTaskMenu();if(wasOpen&&!narrowLayout())$('#refresh').focus();});
+window.visualViewport?.addEventListener('resize',updateViewport);
+window.visualViewport?.addEventListener('scroll',updateViewport);
+window.addEventListener('resize',updateViewport);updateViewport();
 const picker=createPromptPicker({prompt:$('#prompt'),panel:$('#prompt-picker'),rpc,context:()=>({key:authEpoch+'|'+(thread?.cwd||$('#cwd').value),cwd:thread?.cwd||$('#cwd').value,enabled:canWrite()&&connected&&!loadingTask&&!starting&&!turn})});
 $('#cwd').addEventListener('input',()=>picker.update());
 $('#login-form').onsubmit=async e=>{e.preventDefault();try{await api('login',{username:$('#username').value,password:$('#password').value});$('#password').value='';$('#login-error').textContent='';await enter()}catch(e){$('#login-error').textContent=e.message}};
+$('#task-options').onclick=e=>{const button=e.currentTarget;button.taskSummary=thread;button.dataset.id=thread.id;openTaskMenu(e,button);};
 $('#rename-task').onclick=()=>openRename();
 $('#context-archive').onclick=()=>{if(contextTarget)openArchive(contextTarget.taskSummary,contextTarget);};
 $('#archive-form').onsubmit=e=>{e.preventDefault();archiveTask();};
@@ -280,6 +322,6 @@ const context=document.modelContext;if(context?.registerTool){const lifetime=new
 enter().catch(e=>{if($('#login').hidden)notice(e.message)});
 
 const projects=createProjectsView({root:$('#projects-view'),read:()=>api('projects')});
-function showTasks(){projects.hide();$('#task-view').hidden=false;$('#show-tasks').hidden=true;$('#show-projects').setAttribute('aria-expanded','false');}
-$('#show-projects').onclick=()=>{closeTaskMenu();$('#task-view').hidden=true;$('#show-tasks').hidden=false;$('#show-projects').setAttribute('aria-expanded','true');projects.show();};
+function showTasks(){closeNavigation();projects.hide();$('#task-view').hidden=false;$('#show-tasks').hidden=true;$('#show-projects').setAttribute('aria-expanded','false');}
+$('#show-projects').onclick=()=>{closeNavigation();closeTaskMenu();$('#task-view').hidden=true;$('#show-tasks').hidden=false;$('#show-projects').setAttribute('aria-expanded','true');projects.show();};
 $('#show-tasks').onclick=showTasks;
