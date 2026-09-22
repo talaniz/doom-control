@@ -92,7 +92,7 @@ async function list(more=false){
    btn.classList.toggle('selected',thread?.id===t.id);btn.append(el('small',new Date(t.updatedAt*1000).toLocaleDateString()));
    btn.onclick=()=>openTask(t.id).catch(e=>notice(e.message));$('#tasks').append(btn);
   }
-  if(focusId)([...$('#tasks').children].find(button=>button.dataset.id===focusId)||$('#tasks button')||$('#refresh')).focus();
+  if(focusId)focusTaskControl([...$('#tasks').children].find(button=>button.dataset.id===focusId)||$('#tasks button')||$('#refresh'));
   listStatus($('#tasks').children.length?'':cursor?'No tasks on this page. Load more to continue.':'No tasks yet.');
  }catch(error){
   if(serial===listEpoch&&epoch===authEpoch)listStatus('Could not load tasks. Try Refresh.');
