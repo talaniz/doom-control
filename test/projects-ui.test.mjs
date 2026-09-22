@@ -132,3 +132,51 @@ test("manual refresh restores keyboard focus unless the user moves elsewhere whi
   assert.equal(root.ownerDocument.activeElement, outside);
   view.reset();
 });
+
+test("timestamps show relative ages with persistent, focusable exact-time disclosures", async () => {
+  const data = snapshot();
+  let now = Date.parse(data.observedAt) + 30000;
+  data.projects[0].lastPollAt = "2026-09-20T23:58:30.000Z";
+  data.projects[0].latestOutcome = {
+    stage: "complete", issueUrl: "https://example.com/issues/1",
+    at: "2026-09-20T22:00:30.000Z",
+  };
+  const dom = new JSDOM('<section></section>');
+  const root = dom.window.document.querySelector('section');
+  const view = createProjectsView({ root, read: async () => ({ state: "fresh", snapshot: data }), intervalMs: 0, now: () => now });
+  await view.show();
+  const summaries = [...root.querySelectorAll('.project-time summary')];
+  assert.deepEqual(summaries.map(n => n.textContent), ["Snapshot: 30 seconds ago", "Last poll: 2 minutes ago", "Recorded: 2 hours ago"]);
+  assert.match(root.textContent, /Never polled/);
+  const time = root.querySelector('time');
+  assert.equal(time.dateTime, data.observedAt);
+  assert.equal(time.textContent, new Intl.DateTimeFormat(undefined, {
+    dateStyle: "full", timeStyle: "long",
+  }).format(new Date(data.observedAt)));
+  summaries[1].parentElement.open = true;
+  summaries[1].focus();
+  now += 180000;
+  await view.refresh();
+  assert.match(root.textContent, /Stale/);
+  assert.equal(root.ownerDocument.activeElement.textContent, 'Last poll: 5 minutes ago');
+  assert.equal(root.ownerDocument.activeElement.parentElement.open, true);
+  view.reset();
+});
+
+test("timestamp units, future values and invalid dates are deterministic", async () => {
+  const data = snapshot();
+  const now = Date.parse(data.observedAt);
+  const { window } = new JSDOM('<section></section>');
+  const root = window.document.querySelector('section');
+  const view = createProjectsView({ root, read: async () => ({ state: 'stale', snapshot: data }), intervalMs: 0, now: () => now });
+  for (const [offset, expected] of [[0, 'now'], [-1000, '1 second ago'], [-60000, '1 minute ago'], [-3600000, '1 hour ago'], [-86400000, '1 day ago'], [120000, 'in 2 minutes']]) {
+    data.observedAt = new Date(now + offset).toISOString();
+    await view.show();
+    assert.equal(root.querySelector('summary')?.textContent, `Snapshot: ${expected}`);
+  }
+  data.observedAt = 'invalid';
+  await view.refresh();
+  assert.match(root.textContent, /Snapshot: Time unavailable/);
+  assert.equal(root.querySelector('time'), null);
+  view.reset();
+});
